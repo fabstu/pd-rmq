@@ -1,5 +1,6 @@
 mod heapsize;
 mod indexed;
+mod instances;
 mod pd;
 mod rmq;
 
@@ -37,7 +38,7 @@ async fn real_main(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 
     match command.as_ref() {
-        "pd" => pd::pd_simple(file_path),
+        "pd" => pd::benchmark_and_check(file_path, None),
         "rmq" => rmq::rmq(file_path),
         _ => {
             println!("Unknown command");

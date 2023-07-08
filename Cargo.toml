@@ -5,4 +5,6 @@ edition = "2021"
 
 [dependencies]
 async-openai = "0.12.1"
+graphannis-malloc_size_of = "2.0.0"
+graphannis-malloc_size_of_derive = "2.0.0"
 tokio = { version = "1", features = ["full"] }

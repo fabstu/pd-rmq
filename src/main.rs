@@ -1,5 +1,13 @@
+mod heapsize;
+mod indexed;
 mod pd;
 mod rmq;
+
+extern crate graphannis_malloc_size_of as malloc_size_of;
+#[macro_use]
+extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
+
+use graphannis_malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
 use std::env::{self};
 use std::error::Error;
@@ -28,11 +36,9 @@ async fn real_main(args: Vec<String>) -> Result<(), Box<dyn Error>> {
         std::process::exit(1);
     }
 
-    let file_content = load_file(file_path)?;
-
     match command.as_ref() {
-        "pd" => pd::pd(file_content),
-        "rmq" => rmq::rmq(file_content),
+        "pd" => pd::pd_simple(file_path),
+        "rmq" => rmq::rmq(file_path),
         _ => {
             println!("Unknown command");
             std::process::exit(1);

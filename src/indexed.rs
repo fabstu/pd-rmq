@@ -1,5 +1,19 @@
+use std::time::Duration;
+
+use malloc_size_of::MallocSizeOfOps;
+
+#[derive(MallocSizeOf)]
 pub struct IndexedBitVec {
-    data: Vec<bool>,
+    pub data: Vec<bool>,
+}
+
+pub fn report(algo: String, time: Duration, space: usize) {
+    println!(
+        "RESULT algo={} nameFabian_Sturm time={} space={}",
+        algo,
+        time.as_millis(),
+        space
+    );
 }
 
 impl IndexedBitVec {

@@ -1,3 +1,5 @@
-pub fn rmq(file_content: String) {
+use std::path::Path;
+
+pub fn rmq(path: &Path) {
     println!("rmq");
 }

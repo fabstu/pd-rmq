@@ -1,0 +1,8 @@
+[package]
+name = "rmq_project"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-openai = "0.12.1"
+tokio = { version = "1", features = ["full"] }

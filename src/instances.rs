@@ -28,7 +28,7 @@ pub fn read_pd_instance(path: &Path) -> Result<PDInstance, Box<dyn Error>> {
 
     let mut lineBuffer = String::new();
 
-    for _i in 0..number_count - 1 {
+    for _i in 0..number_count {
         reader.read_line(&mut lineBuffer)?;
 
         println!("line: {}", lineBuffer);

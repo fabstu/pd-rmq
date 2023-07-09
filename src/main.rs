@@ -8,7 +8,7 @@ extern crate graphannis_malloc_size_of as malloc_size_of;
 #[macro_use]
 extern crate graphannis_malloc_size_of_derive as malloc_size_of_derive;
 
-use graphannis_malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
+//use graphannis_malloc_size_of::{MallocSizeOf, MallocSizeOfOps};
 
 use std::env::{self};
 use std::error::Error;

@@ -2,6 +2,7 @@ mod heapsize;
 mod indexed;
 mod instances;
 mod pd;
+mod report;
 mod rmq;
 
 extern crate graphannis_malloc_size_of as malloc_size_of;

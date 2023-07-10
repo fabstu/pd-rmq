@@ -1,6 +1,7 @@
 use super::heapsize;
 use super::indexed;
 use super::instances;
+use super::report;
 
 use std::path::Path;
 use std::time::Instant;
@@ -13,7 +14,7 @@ use crate::malloc_size_of::MallocSizeOfOps;
 struct PD {
     // TODO: Implement structure for fast rank01 and select01.
     // Then: implement access and predecessor with them.
-    upper: indexed::IndexedBitVec,
+    upper: indexed::Bitvector,
     lower: Vec<bool>,
     upper_bits: u64,
     lower_bits: u64,
@@ -77,7 +78,7 @@ impl PD {
         }
 
         return Self {
-            upper: indexed::IndexedBitVec { data: upper_vec },
+            upper: indexed::Bitvector::new(upper_vec),
             lower: lower_vec,
             upper_bits: upper_bits as u64,
             lower_bits: lower_bits as u64,
@@ -173,7 +174,7 @@ fn benchmark(instance: PDInstance) {
     let mut ops = MallocSizeOfOps::new(heapsize::platform::usable_size, None, None);
     let size = pd.size_of(&mut ops);
 
-    indexed::report("pd".to_string(), duration, size);
+    report::report("pd", duration, size);
 }
 
 pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {

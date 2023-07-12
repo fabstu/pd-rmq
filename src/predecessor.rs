@@ -1,11 +1,12 @@
+use super::bitvector;
 use super::heapsize;
-use super::indexed;
 use super::instances;
 use super::report;
 
 use std::path::Path;
 use std::time::Instant;
 
+use crate::bitvector::MyError;
 use crate::instances::PDInstance;
 use crate::malloc_size_of::MallocSizeOf;
 use crate::malloc_size_of::MallocSizeOfOps;
@@ -14,7 +15,7 @@ use crate::malloc_size_of::MallocSizeOfOps;
 struct PD {
     // TODO: Implement structure for fast rank01 and select01.
     // Then: implement access and predecessor with them.
-    upper: indexed::Bitvector,
+    upper: bitvector::Bitvector,
     lower: Vec<bool>,
     upper_bits: u64,
     lower_bits: u64,
@@ -78,7 +79,7 @@ impl PD {
         }
 
         return Self {
-            upper: indexed::Bitvector::new(upper_vec),
+            upper: bitvector::Bitvector::new(upper_vec),
             lower: lower_vec,
             upper_bits: upper_bits as u64,
             lower_bits: lower_bits as u64,
@@ -88,8 +89,8 @@ impl PD {
     // Lower bit access:
     // i - 1 bits davor * Anzah-bits die die zahlen lang sind
     // -> einzelne bits lesen.
-    pub fn access(&self, i: u64) -> u64 {
-        let upper_part = self.upper.select1(i.try_into().unwrap()) - i;
+    pub fn access(&self, i: u64) -> Result<u64, MyError> {
+        let upper_part = self.upper.select1(i.try_into().unwrap())? - i;
 
         let mut lower_part = 0;
 
@@ -99,10 +100,10 @@ impl PD {
             lower_part = lower_part | (if bit { 1 } else { 0 } << j);
         }
 
-        return (upper_part << self.lower_bits | lower_part) as u64;
+        return Ok((upper_part << self.lower_bits | lower_part) as u64);
     }
 
-    pub fn pred(&self, i: u64) -> u64 {
+    pub fn pred(&self, i: u64) -> Result<u64, MyError> {
         // Split into lower and upper.
         let (lower, pi) = self.split(i);
 
@@ -148,7 +149,7 @@ impl PD {
 
         self.upper.select0(i) + i;
 
-        return 3;
+        return Ok(3);
     }
 }
 
@@ -189,7 +190,7 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
         let mut got = Vec::<u64>::new();
 
         for query in instance.queries.clone() {
-            got.push(pd.pred(query));
+            got.push(pd.pred(query).unwrap());
         }
 
         assert_eq!(want, got);
@@ -200,7 +201,7 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
 }
 
 #[test]
-fn greeting_contains_name() {
+fn pd_benchmark() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_4.txt");
 
     let want = vec![4, 4, 3, 3];

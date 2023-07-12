@@ -5,7 +5,7 @@ use std::fmt;
 // type BitVector = Vec<bool>;
 type TupleKey = (Vec<bool>, u64);
 
-#[derive(MallocSizeOf)]
+#[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {
     block_bits: u64,
     superblock_bits: u64,
@@ -22,12 +22,24 @@ pub struct Bitvector {
     data: Vec<bool>,
 }
 
-#[derive(Debug)]
-struct MyError;
+#[derive(Debug, PartialEq)]
+pub enum MyError {
+    InvalidValue,
+    Select1GotZero,
+    Select1NotEnough1s,
+    Select1OutOfBounds,
+}
 
 impl fmt::Display for MyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Invalid value in vector")
+        match *self {
+            MyError::InvalidValue => f.write_str("Invalid value in vector"),
+            MyError::Select1GotZero => f.write_str("select1 got 0"),
+            MyError::Select1NotEnough1s => f.write_str("select1 not enough 1s"),
+            MyError::Select1OutOfBounds => {
+                f.write_str("select1 out of bounds due to not enough 1s")
+            }
+        }
     }
 }
 
@@ -35,11 +47,11 @@ impl Error for MyError {}
 
 impl Bitvector {
     // Passes in a vector of 0s and 1s with lowest bits first.
-    fn from_vec(vec: Vec<u8>) -> Result<Self, Box<dyn Error>> {
+    fn from_vec(vec: Vec<u8>) -> Result<Self, MyError> {
         if vec.iter().all(|b| *b == 1 || *b == 0) {
             Ok(Self::new(vec.iter().map(|b| *b == 1).collect()))
         } else {
-            Err(Box::new(MyError))
+            Err(MyError::InvalidValue)
         }
     }
 
@@ -212,17 +224,46 @@ impl Bitvector {
     //     count
     // }
 
-    pub fn select1(&self, i: u64) -> u64 {
+    pub fn select1(&self, i: u64) -> Result<u64, MyError> {
+        if i == 0 {
+            return Err(MyError::Select1GotZero);
+        }
+        if i >= self.data.len() as u64 {
+            return Err(MyError::Select1OutOfBounds);
+        }
+
         let mut count = 0;
         for j in 0..self.data.len() as u64 {
-            if !self.data[j as usize] {
+            if self.data[j as usize] {
                 count += 1;
             }
             if count == i {
-                return j;
+                return Ok(j);
             }
         }
-        panic!("select out of bounds");
+
+        return Err(MyError::Select1NotEnough1s);
+    }
+
+    pub fn select1_simple(&self, i: u64) -> Result<u64, MyError> {
+        if i == 0 {
+            return Err(MyError::Select1GotZero);
+        }
+        if i >= self.data.len() as u64 {
+            return Err(MyError::Select1OutOfBounds);
+        }
+
+        let mut count = 0;
+        for j in 0..self.data.len() as u64 {
+            if self.data[j as usize] {
+                count += 1;
+            }
+            if count == i {
+                return Ok(j);
+            }
+        }
+
+        return Err(MyError::Select1NotEnough1s);
     }
 
     pub fn select0(&self, i: u64) -> u64 {
@@ -258,7 +299,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn testing_rank1() {
         let vec: Vec<u8> = vec![1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0];
 
         println!("vec: {:?}", vec);
@@ -281,5 +322,45 @@ mod tests {
         assert_eq!(bit_vector.rank1(13), 5);
         assert_eq!(bit_vector.rank1(14), 6);
         assert_eq!(bit_vector.rank1(15), 7);
+    }
+
+    #[test]
+    fn testing_select1() {
+        let vec: Vec<u8> = vec![1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0];
+
+        println!("vec: {:?}", vec);
+
+        let bit_vector = Bitvector::from_vec(vec).unwrap();
+
+        let select1_fn = |i| bit_vector.select1(i);
+        let select1_simple_fn = |i| bit_vector.select1_simple(i);
+
+        testing_select1_variants(select1_fn);
+        testing_select1_variants(select1_simple_fn);
+    }
+
+    fn testing_select1_variants<F>(select1: F)
+    where
+        F: Fn(u64) -> Result<u64, MyError>,
+    {
+        assert_eq!(select1(0).unwrap_err(), MyError::Select1GotZero);
+        assert_eq!(select1(1).unwrap(), 0);
+        assert_eq!(select1(2).unwrap(), 2);
+        assert_eq!(select1(3).unwrap(), 4);
+        assert_eq!(select1(4).unwrap(), 7);
+        assert_eq!(select1(5).unwrap(), 8);
+        assert_eq!(select1(6).unwrap(), 13);
+        assert_eq!(select1(7).unwrap(), 14);
+        // Only 7 1s in the bitvector.
+        assert_eq!(select1(8).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(9).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(10).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(11).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(12).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(13).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(14).unwrap_err(), MyError::Select1NotEnough1s);
+        assert_eq!(select1(15).unwrap_err(), MyError::Select1NotEnough1s);
+        // Out of bounds of the bitvector, can never be that many 1s.
+        assert_eq!(select1(16).unwrap_err(), MyError::Select1OutOfBounds);
     }
 }

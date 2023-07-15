@@ -179,7 +179,13 @@ impl Select1 {
         // This might be too much.. .
         for i in 0..2u64.pow((maximum_block_size_in_bits) as u32) {
             // Get block bitvector pattern.
-            let block = u64_to_vec_bool(i, maximum_block_size_in_bits);
+            //
+            // What is the bit-size of the blocks?
+            // One case I had was where the input-blockrange was 2bit
+            // but the lookup_table blocksize was 3bit, making the app crash.
+            //
+            // So.. -1 for now.
+            let block = u64_to_vec_bool(i, maximum_block_size_in_bits - 1);
             let mut block_lookups: HashMap<u64, u64> = HashMap::new();
 
             let number_of_ones_zeroes = block.iter().filter(|v| **v == is1).count() as u64;
@@ -383,7 +389,7 @@ impl Select1 {
                 );
 
                 in_block_offset = subblock.select(
-                    &data[this_superblock_start_index as usize..this_superblock_end_index],
+                    &data[this_superblock_start_index as usize..=this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 )?;
 
@@ -395,11 +401,16 @@ impl Select1 {
                 // And if its the last block, beginning of block to end of
                 // global data.
                 println!(
-                    "Lookup table select super_number={} b={} i={} i-inside={}",
-                    superblock_number, self.b, i, i_excluding_previous_superblocks
+                    "Lookup table select super_number={} b={} i={} i-inside={} from {} to {}",
+                    superblock_number,
+                    self.b,
+                    i,
+                    i_excluding_previous_superblocks,
+                    this_superblock_start_index,
+                    this_superblock_end_index
                 );
                 in_block_offset = self.lookup_table_select(
-                    &data[this_superblock_start_index as usize..this_superblock_end_index],
+                    &data[this_superblock_start_index as usize..=this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 );
                 println!("returned");
@@ -460,6 +471,9 @@ impl Select1 {
     }
 
     fn lookup_table_select(&self, data: &[bool], i: u64) -> u64 {
+        // Problem: block with 2 bits is passed in but
+        // lookup_table only contains 3-bit blocks to look up.
+        println!("lookup_table_select: block={:?} i={}", data, i);
         self.lookup_table[data][&i]
     }
 

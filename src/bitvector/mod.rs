@@ -59,7 +59,7 @@ impl Bitvector {
         let select0 = Select1::new(&data, false, false);
 
         println!("Select1-overall: {:?}", select1);
-        //println!("Select0-overall: {:?}", select0);
+        println!("Select0-overall: {:?}", select0);
 
         Self {
             rank: Rank1::new(&data),
@@ -77,6 +77,7 @@ impl Bitvector {
     }
 
     pub fn select0(&self, i: u64) -> Result<u64, MyError> {
+        println!("Select0: {}", i);
         self.select0.select(&self.data[..], i)
     }
 
@@ -144,6 +145,8 @@ mod tests {
         testing_select1_variants("select1_simple", |i| bit_vector.select1_simple(i));
         testing_select1_variants("select1_naive", |i| bit_vector.select1_naive(i));
         testing_select1_variants("select1", |i| bit_vector.select1(i));
+
+        testing_select0_variants("select0", |i| bit_vector.select0(i));
     }
 
     fn testing_select1_variants<F>(name: &'static str, select1: F)
@@ -174,6 +177,35 @@ mod tests {
         // Out of bounds of the bitvector, can never be that many 1s.
         assert_eq!(select1(16).unwrap_err(), MyError::Select1OutOfBounds);
     }
+}
+
+fn testing_select0_variants<F>(name: &'static str, select0: F)
+where
+    F: Fn(u64) -> Result<u64, MyError>,
+{
+    println!("testing select0: {}", name);
+
+    // Except.. the documentation for Elias-Fano (pred)
+    // assumes that select0(0) return 0.
+    assert_eq!(select0(0).unwrap(), 0);
+    assert_eq!(select0(1).unwrap(), 1);
+    assert_eq!(select0(2).unwrap(), 3);
+    assert_eq!(select0(3).unwrap(), 5);
+    assert_eq!(select0(4).unwrap(), 6);
+    assert_eq!(select0(5).unwrap(), 9);
+    assert_eq!(select0(6).unwrap(), 10);
+    assert_eq!(select0(7).unwrap(), 11);
+    assert_eq!(select0(8).unwrap(), 12);
+    assert_eq!(select0(9).unwrap(), 15);
+    // Only 7 1s in the bitvector.
+    assert_eq!(select0(10).unwrap_err(), MyError::Select1NotEnough1s);
+    assert_eq!(select0(11).unwrap_err(), MyError::Select1NotEnough1s);
+    assert_eq!(select0(12).unwrap_err(), MyError::Select1NotEnough1s);
+    assert_eq!(select0(13).unwrap_err(), MyError::Select1NotEnough1s);
+    assert_eq!(select0(14).unwrap_err(), MyError::Select1NotEnough1s);
+    assert_eq!(select0(15).unwrap_err(), MyError::Select1NotEnough1s);
+    // Out of bounds of the bitvector, can never be that many 1s.
+    assert_eq!(select0(16).unwrap_err(), MyError::Select1OutOfBounds);
 }
 
 fn u64_to_vec_bool(n: u64, bit_size: u64) -> Vec<bool> {

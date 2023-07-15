@@ -134,15 +134,17 @@ mod tests {
 
         let bit_vector = Bitvector::from_vec(vec).unwrap();
 
-        testing_select1_variants(|i| bit_vector.select1_simple(i));
-        testing_select1_variants(|i| bit_vector.select1_naive(i));
-        testing_select1_variants(|i| bit_vector.select1(i));
+        testing_select1_variants("select1_simple", |i| bit_vector.select1_simple(i));
+        testing_select1_variants("select1_naive", |i| bit_vector.select1_naive(i));
+        testing_select1_variants("select1", |i| bit_vector.select1(i));
     }
 
-    fn testing_select1_variants<F>(select1: F)
+    fn testing_select1_variants<F>(name: &'static str, select1: F)
     where
         F: Fn(u64) -> Result<u64, MyError>,
     {
+        println!("testing select1: {}", name);
+
         // Except.. the documentation for Elias-Fano (pred)
         // assumes that select0(0) return 0.
         assert_eq!(select1(0).unwrap_err(), MyError::Select1GotZero);
@@ -165,4 +167,20 @@ mod tests {
         // Out of bounds of the bitvector, can never be that many 1s.
         assert_eq!(select1(16).unwrap_err(), MyError::Select1OutOfBounds);
     }
+}
+
+fn u64_to_vec_bool(n: u64, bit_size: u64) -> Vec<bool> {
+    // Find out how many bits are required to represent the number.
+
+    // Create the vector with each bit encoded as a bool.
+    let mut vec = Vec::with_capacity(bit_size as usize);
+
+    // Reverse here because wanna store from lowest to highest
+    // significant bit.
+    for i in (0..bit_size).rev() {
+        let bit = (n >> (bit_size - 1 - i)) & 1;
+        vec.push(bit == 1);
+    }
+
+    vec
 }

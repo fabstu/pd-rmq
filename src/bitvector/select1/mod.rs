@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 mod select1_naive;
 
+use super::u64_to_vec_bool;
 use super::MyError;
 pub use select1_naive::Select1Naive;
 
@@ -111,19 +112,88 @@ impl Select1 {
                 // b) After: No good.
                 superblock_end_index.push(i as u32);
             }
-
-            // Fine that this cuts off the mantisse?
-            //
-            // Anyway, this here is useless since we determine superblock_index
-            // by #1s/#0s using count.
-            //let superblock_index = i as u32 / b;
-
-            //
         }
 
-        // for superblock_index in 0..numberOfSuperblocks {
+        let in_superblock: Vec<InSuperblockSelect> = Vec::new();
 
-        // }
+        // Insert for each superblock its way of getting the index inside
+        // in constant time.
+
+        let maximum_block_size_in_bits = 0;
+
+        let mut select_lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>> = HashMap::new();
+
+        // All possible values for block_size.
+        for i in 0..2u64.pow((maximum_block_size_in_bits) as u32) {
+            // Get block bitvector pattern.
+            let block = u64_to_vec_bool(i, maximum_block_size_in_bits);
+            let mut block_lookups: HashMap<u64, u64> = HashMap::new();
+
+            let number_of_ones_zeroes = block.iter().filter(|v| **v == is1).count() as u64;
+
+            // Go up to numberOfOnesOrZeroes + 1 because we want to include
+            // the last found match as well. We start at 1 after all and
+            // with ..X, X is excluded.
+            for lookup in 0..number_of_ones_zeroes + 1 {
+                // How do I get #1s in i up to lookup without calcing rank1 for
+                // each lookup manually?
+                //
+                // a) flip each bit (block_bitsize is bit-count) manually, and
+                //    update #1s on each flip.
+
+                let mut select1: u64 = 0;
+
+                if lookup == 0 {
+                    select1 = 0;
+                } else {
+                    // Calculate select1 for this block and lookup.
+                    //
+                    // a) flip each bit manually, and adapt #1s on each flip.
+                    // b) Slow: Iterate over block and up to found
+                    //    lookup #1s/#0s.
+                    //
+                    //    Except.. size < log^4 n is super small, so might be
+                    //    insignificant anyway.
+                    let mut count = 0;
+                    let mut found = false;
+
+                    for index in 0..block.len() {
+                        if block[index] != is1 {
+                            continue;
+                        }
+
+                        count += 1;
+
+                        if count == lookup {
+                            select1 = index as u64;
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if !found {
+                        panic!(
+                            "Could not find select1 for block: {:#?} lookup: {}",
+                            block, lookup
+                        );
+                    }
+                }
+
+                println!(
+                    "ins select1_lookup - max block size: {} i: {} block: {:#?} lookup: {} rank1: {}",
+                    maximum_block_size_in_bits, i, block, lookup, select1,
+                );
+
+                block_lookups.insert(lookup, select1);
+            }
+
+            select_lookup_table.insert(block, block_lookups);
+        }
+
+        // How do I know the maximum #bits I need for the lookup table?
+        // a) b: #bits per superblock.
+        // b) size < log^4 n: Only using lookup table in this case.
+        // c) Observe the maximum block size from previous iteration.
 
         Self {
             is1: is1,
@@ -131,7 +201,7 @@ impl Select1 {
             b: b,
             in_superblock: in_superblock,
             superblock_end_index: Vec::new(),
-            lookup_table: lookup_table,
+            lookup_table: select_lookup_table,
         }
     }
 
@@ -192,17 +262,28 @@ impl Select1 {
 
         let in_block_offset: u64;
 
+        let i_excluding_previous_superblocks: u64;
+
+        if superblock_number == 0 {
+            // No previous superblock, so all i ones/zeroes are to be found
+            // in this block.
+            i_excluding_previous_superblocks = i;
+        } else {
+            // Only count the previous superblocks.
+            i_excluding_previous_superblocks = i - ((superblock_number - 1) * self.b as u64);
+        }
+
         match self.in_superblock[superblock_number as usize] {
             InSuperblockSelect::Naive(ref naive) => {
                 // What do I pass as i here? 0 == beginning of block.
                 // But if it returns 0,
-                in_block_offset = naive.select(i)?;
+                in_block_offset = naive.select(i_excluding_previous_superblocks)?;
             }
             InSuperblockSelect::Subblock(ref subblock) => {
                 // What data to pass here?
                 in_block_offset = subblock.select(
                     &data[this_superblock_start_index as usize..this_superblock_end_index],
-                    i,
+                    i_excluding_previous_superblocks,
                 )?;
             }
             InSuperblockSelect::LookupTable => {
@@ -212,7 +293,7 @@ impl Select1 {
                 // global data.
                 in_block_offset = self.lookup_table_select(
                     &data[this_superblock_start_index as usize..this_superblock_end_index],
-                    i,
+                    i_excluding_previous_superblocks,
                 );
             }
         }

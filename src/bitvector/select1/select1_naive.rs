@@ -79,7 +79,7 @@ impl Select1Naive {
             return Err(MyError::Select1OutOfBounds);
         }
 
-        if i as u32 >= self.answers.len() as u32 {
+        if i as u32 > self.answers.len() as u32 {
             return Err(MyError::Select1NotEnough1s);
         }
 

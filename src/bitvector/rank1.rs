@@ -2,6 +2,8 @@ use std::collections::HashMap;
 
 type TupleKey = (Vec<bool>, u64);
 
+use super::u64_to_vec_bool;
+
 // Have Rank1 data here to be able to keep initializer here aswell.
 #[derive(MallocSizeOf, Clone)]
 pub struct Rank1 {
@@ -92,8 +94,10 @@ impl Rank1 {
 
         // All possible values for block_size.
         for i in 0..2u64.pow((block_size) as u32) {
+            // Get block bitvector pattern.
+            let block = u64_to_vec_bool(i, block_size);
+
             for lookup in 0..block_size {
-                let block = Self::u64_to_vec_bool(i, block_size);
                 let key = (block.clone(), lookup);
 
                 // How do I get #1s in i up to lookup without calcing rank1 for
@@ -138,19 +142,6 @@ impl Rank1 {
             rank1_lookup_table: rank1_lookup_table,
         }
     }
-
-    fn u64_to_vec_bool(n: u64, bit_size: u64) -> Vec<bool> {
-        // Find out how many bits are required to represent the number.
-
-        // Create the vector with each bit encoded as a bool.
-        let mut vec = Vec::with_capacity(bit_size as usize);
-        for i in 0..bit_size {
-            let bit = (n >> (bit_size - 1 - i)) & 1;
-            vec.push(bit == 1);
-        }
-
-        vec
-    }
 }
 
 impl Rank1 {
@@ -192,7 +183,10 @@ impl Rank1 {
         // So todo later: Reverse stored blocks instead.
         // But.. remember to maybe reverse block_start and block_end as well
         // or something? Gets complicated.
-        block.reverse();
+        //
+        // Not needing reverse probably anymore because fixed u64_to_vec_bool to
+        // return lowest to highest significant bit.
+        //block.reverse();
 
         let lookup = i % self.block_size;
 

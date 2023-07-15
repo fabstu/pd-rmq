@@ -121,16 +121,16 @@ impl Rank1 {
                     rank1 = bits_up_to_lookup.count_ones();
                 }
 
-                println!(
-                    "ins block_bitsize: {} i: {} block: {:#?} lookup: {} rank1: {}",
-                    block_bitsize, i, block, lookup, rank1
-                );
+                // println!(
+                //     "ins block_bitsize: {} i: {} block: {:#?} lookup: {} rank1: {}",
+                //     block_bitsize, i, block, lookup, rank1
+                // );
 
                 rank1_lookup_table.insert(key, rank1);
             }
         }
 
-        println!("block_bitsize: {} superblock_bitsize: {}, block_size: {}, superblock_size: {}, rank1_sb_1s: {}, rank1_block_1s: {}, lookup_count: {}", block_bitsize, superblock_bitsize, block_size, superblock_size, superblock_1s.len(), block_1s.len(), rank1_lookup_table.len());
+        // println!("block_bitsize: {} superblock_bitsize: {}, block_size: {}, superblock_size: {}, rank1_sb_1s: {}, rank1_block_1s: {}, lookup_count: {}", block_bitsize, superblock_bitsize, block_size, superblock_size, superblock_1s.len(), block_1s.len(), rank1_lookup_table.len());
 
         Self {
             block_bits: block_bitsize,
@@ -190,12 +190,12 @@ impl Rank1 {
 
         let lookup = i % self.block_size;
 
-        println!("block: {:?} lookup: {}", block, lookup,);
+        // println!("block: {:?} lookup: {}", block, lookup,);
 
-        println!(
-            "block_loockedup: {}",
-            self.rank1_lookup_table[&(block.clone(), lookup)] as u64
-        );
+        // println!(
+        //     "block_loockedup: {}",
+        //     self.rank1_lookup_table[&(block.clone(), lookup)] as u64
+        // );
 
         return self.rank1_superblock_1s[superblock_index]
             + self.rank1_block_1s[superblock_index][block_index]

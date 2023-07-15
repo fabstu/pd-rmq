@@ -3,7 +3,7 @@ use super::MyError;
 use std::collections::HashMap;
 
 // This is inside a block. So have to make index relative to this block.
-#[derive(MallocSizeOf, Clone)]
+#[derive(MallocSizeOf, Clone, Debug)]
 pub struct Select1Naive {
     // size of bitvector
     n: u32,
@@ -76,6 +76,7 @@ impl Select1Naive {
         }
 
         if i as u32 >= self.n {
+            println!("Naive: Accessing i={} in select1, but n={}", i, self.n);
             return Err(MyError::Select1OutOfBounds);
         }
 

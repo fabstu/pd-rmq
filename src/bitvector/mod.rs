@@ -55,10 +55,16 @@ impl Bitvector {
 
     // Passes in a vector of 0s and 1s with lowest bits first.
     pub fn new(data: Vec<bool>) -> Self {
+        let select1 = Select1::new(&data, true, false);
+        let select0 = Select1::new(&data, false, false);
+
+        println!("Select1-overall: {:?}", select1);
+        //println!("Select0-overall: {:?}", select0);
+
         Self {
             rank: Rank1::new(&data),
-            select0: Select1::new(&data, true, false),
-            select1: Select1::new(&data, true, false),
+            select0: select0,
+            select1: select1,
             data: data,
         }
     }
@@ -83,6 +89,7 @@ impl Bitvector {
     }
 
     pub fn select1(&self, i: u64) -> Result<u64, MyError> {
+        println!("Select1: {}", i);
         self.select1.select(&self.data[..], i)
     }
 

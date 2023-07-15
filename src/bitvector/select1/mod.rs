@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::result;
 
 mod select1_naive;
 
@@ -6,7 +7,7 @@ use super::u64_to_vec_bool;
 use super::MyError;
 pub use select1_naive::Select1Naive;
 
-#[derive(MallocSizeOf, Clone)]
+#[derive(MallocSizeOf, Clone, Debug)]
 pub struct Select1 {
     // Whether it does select1 or select0.
     is1: bool,
@@ -60,7 +61,7 @@ pub struct Select1 {
 //   recursion. The switch then also decides which of the two strategy-creations
 //   are used.
 //
-#[derive(MallocSizeOf, Clone)]
+#[derive(MallocSizeOf, Clone, Debug)]
 enum InSuperblockSelect {
     Naive(Select1Naive), // Allowed on 1st and 2nd level.
     Subblock(Select1),   // Allowed on 1st level
@@ -80,7 +81,10 @@ impl Select1 {
         let b: u32;
 
         if !is_subblock {
-            b = (n as f64).log2().powf(2.0).floor() as u32;
+            // let log_n = (n as f64).log2();
+            // b = (log_n * log_n) as u32;
+            //b = (n as f64).log2().powf(2.0).floor() as u32;
+            b = (n as f64).log2().floor() as u32;
         } else {
             // Calculate b' as Wurzel(log2 n) instead when in the subblock.
             b = (n as f64).log2().floor() as u32;
@@ -88,11 +92,11 @@ impl Select1 {
 
         // Number of superblocks because we have k zeroes/ones
         // which are split of into blocks of b, leaving the resulting #blocks.
-        //let number_of_superblocks = k / b;
+        //let number_of_superblocks = ceil(b / k);
 
         // Prefix-sum to have #1s for each superblock.
 
-        let mut superblock_end_index: Vec<u32> = Vec::new();
+        let mut superblock_end_index: Vec<u64> = Vec::new();
         let mut count = 0;
 
         // Insert for each superblock its way of getting the index inside
@@ -125,7 +129,10 @@ impl Select1 {
                 //    new block and so handled by that naive/sub-block/lookup
                 //    table.
                 // b) After: No good.
-                superblock_end_index.push(i as u32);
+                //
+                // But..why is no end_index added?
+                superblock_end_index.push(i as u64);
+
                 superblock_end = i;
 
                 // Add to in_superblock.
@@ -143,6 +150,8 @@ impl Select1 {
             }
         }
 
+        println!("Last:");
+
         // Insert last superblock that was not finished.
         in_superblock.push(Self::in_superblock_for(
             data,
@@ -155,12 +164,19 @@ impl Select1 {
             is_subblock,
         ));
 
+        println!(
+            "Added superblock_end_indexes for is_subblock: {} b: {} superblock_end_indexes: {:?} ",
+            is_subblock, b, superblock_end_index
+        );
+
         // As in the slides.
         let maximum_block_size_in_bits: u64 = (n as f64).log2().ceil() as u64;
 
         let mut select_lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>> = HashMap::new();
 
         // All possible values for block_size.
+        //
+        // This might be too much.. .
         for i in 0..2u64.pow((maximum_block_size_in_bits) as u32) {
             // Get block bitvector pattern.
             let block = u64_to_vec_bool(i, maximum_block_size_in_bits);
@@ -216,10 +232,12 @@ impl Select1 {
                     }
                 }
 
+                /*
                 println!(
                     "ins select1_lookup - max block size: {} i: {} block: {:#?} lookup: {} rank1: {}",
                     maximum_block_size_in_bits, i, block, lookup, select1,
                 );
+                */
 
                 block_lookups.insert(lookup, select1);
             }
@@ -237,7 +255,7 @@ impl Select1 {
             k: k,
             b: b,
             in_superblock: in_superblock,
-            superblock_end_index: Vec::new(),
+            superblock_end_index: superblock_end_index,
             lookup_table: select_lookup_table,
         }
     }
@@ -255,6 +273,7 @@ impl Select1 {
             return Err(MyError::Select1GotZero);
         }
         if i >= data.len() as u64 {
+            println!("Accesing i={} in data of len={}", i, data.len());
             return Err(MyError::Select1OutOfBounds);
         }
 
@@ -265,12 +284,27 @@ impl Select1 {
         // Cuts of mantisse, meaning automatic floor() without the rounding up.
         let superblock_number = i / self.b as u64;
 
+        todo
+        // Problem: Returns superblock_number=1, naive gets i=3 unchanged.
+        // When I change it to i=0 by not subtracting the superblock,
+        // then I pass in i=0 to Naive, which does not accept i==0.
+        // So..
+        // a) Drop Select1GotZero and just return 0.
+        // b) Special-case non-outer returns to return 0 instead of Select1GotZero.
+
         // Not sure whether superblock_number can be
         // equal to superblock_end_index.len().
         //
         // But restricting it to < ensures the problems is immediately obivous
         // while ensuring I can access the current blocks' end.
         if superblock_number > self.superblock_end_index.len() as u64 {
+            println!(
+                "i: {} b: {} superblock_number: {} superblock_end_index.len(): {}",
+                i,
+                self.b,
+                superblock_number,
+                self.superblock_end_index.len()
+            );
             return Err(MyError::Select1SuperblockIndexOutOfBounds);
         }
 
@@ -315,31 +349,50 @@ impl Select1 {
             i_excluding_previous_superblocks = i;
         } else {
             // Only count the previous superblocks.
-            i_excluding_previous_superblocks = i - ((superblock_number - 1) * self.b as u64);
+            i_excluding_previous_superblocks = i - (superblock_number * self.b as u64);
         }
 
         match self.in_superblock[superblock_number as usize] {
             InSuperblockSelect::Naive(ref naive) => {
                 // What do I pass as i here? 0 == beginning of block.
                 // But if it returns 0,
+                println!(
+                    "Naive select super_number={} b={} i={} i-inside={}",
+                    superblock_number, self.b, i, i_excluding_previous_superblocks
+                );
+
                 in_block_offset = naive.select(i_excluding_previous_superblocks)?;
+
+                println!("returned");
             }
             InSuperblockSelect::Subblock(ref subblock) => {
                 // What data to pass here?
+                println!(
+                    "Subblock select super_number={} b={} i={} i-inside={}",
+                    superblock_number, self.b, i, i_excluding_previous_superblocks
+                );
+
                 in_block_offset = subblock.select(
                     &data[this_superblock_start_index as usize..this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 )?;
+
+                println!("returned");
             }
             InSuperblockSelect::LookupTable => {
                 // What data to pass here?
                 // Need block beginning to end.
                 // And if its the last block, beginning of block to end of
                 // global data.
+                println!(
+                    "Lookup table select super_number={} b={} i={} i-inside={}",
+                    superblock_number, self.b, i, i_excluding_previous_superblocks
+                );
                 in_block_offset = self.lookup_table_select(
                     &data[this_superblock_start_index as usize..this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 );
+                println!("returned");
             }
         }
 
@@ -355,20 +408,22 @@ impl Select1 {
         is_subblock: bool,
     ) -> InSuperblockSelect {
         // + 1 here because end is included and otherwise not counted.
-        let size = superblock_end - superblock_start + 1;
+        let size = superblock_end + 1 - superblock_start;
+
+        let result: InSuperblockSelect;
 
         if !is_subblock {
             // Naive or subblock.
 
             if size as f64 >= (n as f64).log2().powf(4.0) {
                 // Naive.
-                return InSuperblockSelect::Naive(Select1Naive::new(
+                result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                 ));
             } else {
                 // Subblock.
-                return InSuperblockSelect::Subblock(Select1::new(
+                result = InSuperblockSelect::Subblock(Select1::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                     true,
@@ -377,14 +432,21 @@ impl Select1 {
         } else {
             // Naive or lookup table.
             if size as f64 >= (n as f64).log2() {
-                return InSuperblockSelect::Naive(Select1Naive::new(
+                result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                 ));
             } else {
-                return InSuperblockSelect::LookupTable;
+                result = InSuperblockSelect::LookupTable;
             }
         }
+
+        println!(
+            "is1={} in_superblock_for: is_subblock: {} superblock_start: {} superblock_end: {} size: {} result: {:?}",
+            is1, is_subblock, superblock_start, superblock_end, size, result
+        );
+
+        return result;
     }
 
     fn lookup_table_select(&self, data: &[bool], i: u64) -> u64 {

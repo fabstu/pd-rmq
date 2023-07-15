@@ -43,6 +43,8 @@ pub struct Select1 {
     in_superblock: Vec<InSuperblockSelect>,
 
     lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>>,
+
+    is_subblock: bool,
 }
 
 // Need two different implementations for superblock and subblock.
@@ -90,7 +92,7 @@ impl Select1 {
             b = (n as f64).log2().floor() as u32;
         }
 
-        println!("{} n={}, k={}, b={}", space(is_subblock), n, k, b);
+        println!("{} n={}, k={}, b={}", space(is1, is_subblock), n, k, b);
 
         // Number of superblocks because we have k zeroes/ones
         // which are split of into blocks of b, leaving the resulting #blocks.
@@ -108,7 +110,7 @@ impl Select1 {
         let mut count = 0;
 
         let mut superblock_start: usize = 0;
-        let mut superblock_end: usize;
+        let mut superblock_end: usize = 0;
         for (i, val) in data.iter().enumerate() {
             // is1 == true means methods act as select1, is1 == false is for
             // select0.
@@ -154,23 +156,43 @@ impl Select1 {
             }
         }
 
-        println!("{} Last: ", space(is_subblock));
+        if superblock_end < data.len() - 1 {
+            println!("{} Last: ", space(is1, is_subblock));
 
-        // Insert last superblock that was not finished.
-        in_superblock.push(Self::in_superblock_for(
-            data,
-            n,
-            is1,
-            superblock_start,
-            // Last superblock goes up to the end of the data.
-            // -1 because the end is included.
-            data.len() - 1,
-            is_subblock,
-        ));
+            // Problem: In my case the third is skipped.
+
+            // Insert last superblock that was not finished.
+            in_superblock.push(Self::in_superblock_for(
+                data,
+                n,
+                is1,
+                // Problem: if superblock_end was not added to again, then
+                // superblock_end - 1 is smaller than superblock_start.
+                // So:
+                // a) Special-case this somehow.
+                // b) Think whether the -1 makes sense anyway.
+                // c) Set both to the same value when switching to new superblock
+                //    and avoid the -1.
+                //
+                // Tried c), but then superblock_end is too big here when doing
+                // last.
+                //
+                // d) Only add the last when superblock_start <= superblock_end.
+                //    The idea is that when the new superblock was not started,
+                //    then there is no need to add the non-existent superblock.
+                //
+                // Problem now is that I made start = end + 1 and end = end - 1
+                superblock_start,
+                // Last superblock goes up to the end of the data.
+                // -1 because the end is included.
+                data.len() - 1,
+                is_subblock,
+            ));
+        }
 
         println!(
             "{} Added superblock_end_indexes b: {} superblock_end_indexes: {:?} ",
-            space(is_subblock),
+            space(is1, is_subblock),
             b,
             superblock_end_index
         );
@@ -269,6 +291,7 @@ impl Select1 {
             in_superblock: in_superblock,
             superblock_end_index: superblock_end_index,
             lookup_table: select_lookup_table,
+            is_subblock: is_subblock,
         }
     }
 
@@ -381,6 +404,15 @@ impl Select1 {
             i_excluding_previous_superblocks = i - (superblock_number * self.b as u64);
         }
 
+        println!(
+            "{} superblock_number={} b={} i={} i-inside={}",
+            space(self.is1, self.is_subblock),
+            superblock_number,
+            self.b,
+            i,
+            i_excluding_previous_superblocks
+        );
+
         match self.in_superblock[superblock_number as usize] {
             InSuperblockSelect::Naive(ref naive) => {
                 // What do I pass as i here? 0 == beginning of block.
@@ -414,7 +446,8 @@ impl Select1 {
                 // And if its the last block, beginning of block to end of
                 // global data.
                 println!(
-                    "Lookup table select super_number={} b={} i={} i-inside={} from {} to {}",
+                    "{} Lookup table select super_number={} b={} i={} i-inside={} from {} to {}",
+                    space(self.is1, self.is_subblock),
                     superblock_number,
                     self.b,
                     i,
@@ -449,7 +482,7 @@ impl Select1 {
         assert!(
             superblock_start <= superblock_end,
             "{} n: {} this_superblock_start_index={} <= superblock_end={}",
-            space(is_subblock),
+            space(is1, is_subblock),
             n,
             superblock_start,
             superblock_end
@@ -461,12 +494,12 @@ impl Select1 {
             if size as f64 >= (n as f64).log2().powf(4.0) {
                 // Naive.
                 println!(
-                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} is1={}",
-                    space(is_subblock),
+                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} {:?}",
+                    space(is1, is_subblock),
                     superblock_start,
                     superblock_end,
                     size,
-                    is1
+                    &data[superblock_start..=superblock_end]
                 );
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(
@@ -474,10 +507,14 @@ impl Select1 {
                     is1,
                 ));
             } else {
+                todo
+                // Problem: It can happen that b == 0, because there is
+                // only one element inside.
+
                 // Subblock.
                 println!(
-                    "{} block=subblock: superblock_start: {} superblock_end: {} n: {} b: {} size: {} is1={}",
-                    space(is_subblock), superblock_start, superblock_end, n, (n as f32).log2().floor(), size, is1
+                    "{} block=subblock: superblock_start: {} superblock_end: {} n: {} b: {} size: {} data: {:?}",
+                    space(is1, is_subblock), superblock_start, superblock_end, n, (n as f32).log2().floor(), size, &data[superblock_start..=superblock_end]
                 );
 
                 result = InSuperblockSelect::Subblock(Select1::new(
@@ -491,12 +528,13 @@ impl Select1 {
             if size as f64 >= (n as f64).log2() {
                 // Naive
                 println!(
-                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} is1={}",
-                    space(is_subblock),
+                    "{} block=naive: superblock_start: {} superblock_end: {}  size: {} data: {:?}",
+                    space(is1, is_subblock),
                     superblock_start,
                     superblock_end,
+                    //&data[superblock_start..=superblock_end],
                     size,
-                    is1
+                    &data[superblock_start..=superblock_end],
                 );
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(
@@ -505,12 +543,12 @@ impl Select1 {
                 ));
             } else {
                 println!(
-                    "{} block=lookup_table: superblock_start: {} superblock_end: {} size: {} is1={}",
-                    space(is_subblock),
+                    "{} block=lookup_table: superblock_start: {} superblock_end: {} size: {} data: {:?}",
+                    space(is1, is_subblock),
                     superblock_start,
                     superblock_end,
                     size,
-                    is1
+                    &data[superblock_start..=superblock_end]
                 );
                 result = InSuperblockSelect::LookupTable;
             }
@@ -569,10 +607,11 @@ impl Select1 {
     }
 }
 
-pub fn space(is_subblock: bool) -> &'static str {
+pub fn space(is1: bool, is_subblock: bool) -> String {
+    let is_one = if is1 { "1" } else { "0" };
     if is_subblock {
-        return "    ";
+        return is_one.to_owned() + "    ";
     } else {
-        return "";
+        return is_one.to_owned();
     }
 }

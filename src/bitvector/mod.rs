@@ -57,8 +57,8 @@ impl Bitvector {
     pub fn new(data: Vec<bool>) -> Self {
         Self {
             rank: Rank1::new(&data),
-            select0: Select1::new(&data, true),
-            select1: Select1::new(&data, true),
+            select0: Select1::new(&data, true, false),
+            select1: Select1::new(&data, true, false),
             data: data,
         }
     }

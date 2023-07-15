@@ -7,6 +7,9 @@ use std::fmt;
 pub use rank1::*;
 pub use select1::*;
 
+use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
+
 #[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {
     rank: Rank1,
@@ -147,6 +150,33 @@ mod tests {
         testing_select1_variants("select1", |i| bit_vector.select1(i));
 
         testing_select0_variants("select0", |i| bit_vector.select0(i));
+    }
+
+    #[test]
+    fn testing_select1_thorough() {
+        // Define a seed as an array
+        let seed = [0; 32];
+
+        // Create a seeded RNG
+        let mut rng = StdRng::from_seed(seed);
+
+        let vec: Vec<bool> = (0..20).map(|_| rng.gen_range(0..2) == 1).collect();
+
+        let bit_vector = Bitvector::new(vec.clone());
+
+        for i in 0..vec.len() {
+            print!("Testing i={} ", i);
+
+            println!("Testing simple");
+            let select1_simple = bit_vector.select1_simple(i as u64);
+            println!("Testing naive");
+            let select1_naive = bit_vector.select1_naive(i as u64);
+            println!("Testing succinct");
+            let select1 = bit_vector.select1(i as u64);
+
+            assert_eq!(select1_simple, select1_naive);
+            assert_eq!(select1_simple, select1);
+        }
     }
 
     fn testing_select1_variants<F>(name: &'static str, select1: F)

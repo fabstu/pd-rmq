@@ -829,6 +829,7 @@ dependencies = [
  "async-openai",
  "graphannis-malloc_size_of",
  "graphannis-malloc_size_of_derive",
+ "rand",
  "tokio",
 ]
 

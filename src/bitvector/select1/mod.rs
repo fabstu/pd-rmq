@@ -90,18 +90,22 @@ impl Select1 {
             b = (n as f64).log2().floor() as u32;
         }
 
+        println!("{} n={}, k={}, b={}", space(is_subblock), n, k, b);
+
         // Number of superblocks because we have k zeroes/ones
         // which are split of into blocks of b, leaving the resulting #blocks.
         //let number_of_superblocks = ceil(b / k);
 
         // Prefix-sum to have #1s for each superblock.
-
         let mut superblock_end_index: Vec<u64> = Vec::new();
-        let mut count = 0;
 
         // Insert for each superblock its way of getting the index inside
         // in constant time.
         let mut in_superblock: Vec<InSuperblockSelect> = Vec::new();
+
+        assert_ne!(b, 0, "b must not be 0. n={}", n);
+
+        let mut count = 0;
 
         let mut superblock_start: usize = 0;
         let mut superblock_end: usize;
@@ -150,7 +154,7 @@ impl Select1 {
             }
         }
 
-        println!("Last:");
+        println!("{} Last: ", space(is_subblock));
 
         // Insert last superblock that was not finished.
         in_superblock.push(Self::in_superblock_for(
@@ -165,8 +169,10 @@ impl Select1 {
         ));
 
         println!(
-            "Added superblock_end_indexes for is_subblock: {} b: {} superblock_end_indexes: {:?} ",
-            is_subblock, b, superblock_end_index
+            "{} Added superblock_end_indexes b: {} superblock_end_indexes: {:?} ",
+            space(is_subblock),
+            b,
+            superblock_end_index
         );
 
         // As in the slides.
@@ -355,6 +361,13 @@ impl Select1 {
                 self.superblock_end_index[superblock_number as usize] as usize;
         }
 
+        assert!(
+            this_superblock_start_index <= this_superblock_end_index as u64,
+            "this_superblock_start_index={} <= this_superblock_end_index={}",
+            this_superblock_start_index,
+            this_superblock_end_index
+        );
+
         let in_block_offset: u64;
 
         let i_excluding_previous_superblocks: u64;
@@ -433,17 +446,40 @@ impl Select1 {
 
         let result: InSuperblockSelect;
 
+        assert!(
+            superblock_start <= superblock_end,
+            "{} n: {} this_superblock_start_index={} <= superblock_end={}",
+            space(is_subblock),
+            n,
+            superblock_start,
+            superblock_end
+        );
+
         if !is_subblock {
             // Naive or subblock.
 
             if size as f64 >= (n as f64).log2().powf(4.0) {
                 // Naive.
+                println!(
+                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} is1={}",
+                    space(is_subblock),
+                    superblock_start,
+                    superblock_end,
+                    size,
+                    is1
+                );
+
                 result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                 ));
             } else {
                 // Subblock.
+                println!(
+                    "{} block=subblock: superblock_start: {} superblock_end: {} n: {} b: {} size: {} is1={}",
+                    space(is_subblock), superblock_start, superblock_end, n, (n as f32).log2().floor(), size, is1
+                );
+
                 result = InSuperblockSelect::Subblock(Select1::new(
                     &data[superblock_start..=superblock_end],
                     is1,
@@ -453,19 +489,32 @@ impl Select1 {
         } else {
             // Naive or lookup table.
             if size as f64 >= (n as f64).log2() {
+                // Naive
+                println!(
+                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} is1={}",
+                    space(is_subblock),
+                    superblock_start,
+                    superblock_end,
+                    size,
+                    is1
+                );
+
                 result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                 ));
             } else {
+                println!(
+                    "{} block=lookup_table: superblock_start: {} superblock_end: {} size: {} is1={}",
+                    space(is_subblock),
+                    superblock_start,
+                    superblock_end,
+                    size,
+                    is1
+                );
                 result = InSuperblockSelect::LookupTable;
             }
         }
-
-        println!(
-            "is1={} in_superblock_for: is_subblock: {} superblock_start: {} superblock_end: {} size: {} result: {:?}",
-            is1, is_subblock, superblock_start, superblock_end, size, result
-        );
 
         return result;
     }
@@ -517,5 +566,13 @@ impl Select1 {
             }
         }
         panic!("select out of bounds");
+    }
+}
+
+pub fn space(is_subblock: bool) -> &'static str {
+    if is_subblock {
+        return "    ";
+    } else {
+        return "";
     }
 }

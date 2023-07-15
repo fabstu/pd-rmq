@@ -72,7 +72,7 @@ impl Select1Naive {
 
     pub fn select(&self, i: u64) -> Result<u64, MyError> {
         if i == 0 {
-            return Err(MyError::Select1GotZero);
+            return Ok(0);
         }
 
         if i as u32 >= self.n {

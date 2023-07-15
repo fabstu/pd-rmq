@@ -270,7 +270,7 @@ impl Select1 {
 
     pub fn select(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
         if i == 0 {
-            return Err(MyError::Select1GotZero);
+            return Ok(0);
         }
         if i >= data.len() as u64 {
             println!("Accesing i={} in data of len={}", i, data.len());
@@ -284,13 +284,12 @@ impl Select1 {
         // Cuts of mantisse, meaning automatic floor() without the rounding up.
         let superblock_number = i / self.b as u64;
 
-        todo
         // Problem: Returns superblock_number=1, naive gets i=3 unchanged.
         // When I change it to i=0 by not subtracting the superblock,
         // then I pass in i=0 to Naive, which does not accept i==0.
         // So..
-        // a) Drop Select1GotZero and just return 0.
-        // b) Special-case non-outer returns to return 0 instead of Select1GotZero.
+        // a) [x] Drop Select1GotZero and just return 0. <- simpler
+        // b)     Special-case non-outer returns to return 0 instead of Select1GotZero.
 
         // Not sure whether superblock_number can be
         // equal to superblock_end_index.len().
@@ -308,6 +307,7 @@ impl Select1 {
             return Err(MyError::Select1SuperblockIndexOutOfBounds);
         }
 
+        let mut previous_superblock_end_index: u64 = 0;
         let this_superblock_start_index: u64;
 
         // Handle pointing to end of previous superblock when there is no
@@ -316,7 +316,7 @@ impl Select1 {
             // One after the end of the previous superblock if there was a
             // previous superblock, because the last superblock ended with an
             // isOne.
-            let previous_superblock_end_index =
+            previous_superblock_end_index =
                 self.superblock_end_index[(superblock_number - 1) as usize];
 
             this_superblock_start_index = previous_superblock_end_index + 1;
@@ -324,6 +324,16 @@ impl Select1 {
             // If there is no previous superblock, then we start pointing
             // to the beginning of the block.
             this_superblock_start_index = 0;
+        }
+
+        // Problem: When in-block return 0 because i == 0, then +1
+        // return the wrong last 1. Or does that even matter?
+        //
+        // I currently do not handle i % b == 0, right?
+        if i % self.b as u64 == 0 {
+            // The i-th 1 is the last 1 in the superblock.
+            // So the superblock end is the i-th 1: return it.
+            return Ok(previous_superblock_end_index);
         }
 
         // Add in-superblock depending on naive or  sub-superblocks with (naive or lookup table).
@@ -455,7 +465,7 @@ impl Select1 {
 
     pub fn select_simple(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
         if i == 0 {
-            return Err(MyError::Select1GotZero);
+            return Ok(0);
         }
         if i >= data.len() as u64 {
             return Err(MyError::Select1OutOfBounds);

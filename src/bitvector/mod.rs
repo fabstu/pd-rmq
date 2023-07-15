@@ -18,7 +18,7 @@ pub struct Bitvector {
 #[derive(Debug, PartialEq)]
 pub enum MyError {
     InvalidValue,
-    Select1GotZero,
+    //Select1GotZero,
     Select1NotEnough1s,
     Select1OutOfBounds,
     Select1SuperblockIndexOutOfBounds,
@@ -28,7 +28,7 @@ impl fmt::Display for MyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             MyError::InvalidValue => f.write_str("Invalid value in vector"),
-            MyError::Select1GotZero => f.write_str("select1 got 0"),
+            // MyError::Select1GotZero => f.write_str("select1 got 0"),
             MyError::Select1NotEnough1s => f.write_str("select1 not enough 1s"),
             MyError::Select1OutOfBounds => {
                 f.write_str("select1 out of bounds due to not enough 1s")
@@ -154,7 +154,7 @@ mod tests {
 
         // Except.. the documentation for Elias-Fano (pred)
         // assumes that select0(0) return 0.
-        assert_eq!(select1(0).unwrap_err(), MyError::Select1GotZero);
+        assert_eq!(select1(0).unwrap(), 0);
         assert_eq!(select1(1).unwrap(), 0);
         assert_eq!(select1(2).unwrap(), 2);
         assert_eq!(select1(3).unwrap(), 4);

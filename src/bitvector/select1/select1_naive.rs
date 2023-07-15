@@ -9,13 +9,15 @@ pub struct Select1Naive {
     n: u32,
     // Why do I have b here? Its the superblock #1s, and this here
     // is inside the block.
+    //
+    // Well, guesss it doesn't matter. Except maybe for performance..
     b: u32,
     // #1s in block. Why is this here?
     // Isn't this redundant with length of answers?
     //
     // And why do I compute this here?
     // Otherwise have to pass that in.
-    k: u32,
+    //k: u32,
 
     // Might not be most efficient to store that way.
     //
@@ -27,9 +29,9 @@ pub struct Select1Naive {
 }
 
 impl Select1Naive {
-    pub fn new(data: &[bool]) -> Self {
+    pub fn new(data: &[bool], is1: bool) -> Self {
         let n = data.len();
-        let k = data.iter().filter(|v| **v == true).count();
+        //let k = data.iter().filter(|v| **v == true).count();
         // Not sure whether floor or ceil.
         let b = (n as f64).log2().powf(2.0).floor() as u32;
 
@@ -37,7 +39,9 @@ impl Select1Naive {
 
         let mut count = 0;
         for (i, &val) in data.iter().enumerate() {
-            if val == false {
+            // Skip if not the value we are looking to count: 0 or 1
+            // respectively.
+            if val != is1 {
                 continue;
             }
 
@@ -61,12 +65,12 @@ impl Select1Naive {
         Self {
             n: n as u32,
             b: b,
-            k: k as u32,
+            //k: k as u32,
             answers: answers,
         }
     }
 
-    pub fn select1(&self, i: u64) -> Result<u64, MyError> {
+    pub fn select(&self, i: u64) -> Result<u64, MyError> {
         if i == 0 {
             return Err(MyError::Select1GotZero);
         }
@@ -75,7 +79,7 @@ impl Select1Naive {
             return Err(MyError::Select1OutOfBounds);
         }
 
-        if i as u32 > self.k {
+        if i as u32 >= self.answers.len() as u32 {
             return Err(MyError::Select1NotEnough1s);
         }
 

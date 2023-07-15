@@ -26,16 +26,16 @@ pub fn read_pd_instance(path: &Path) -> Result<PDInstance, Box<dyn Error>> {
     // Trim to avoid newline.
     let number_count = number_count_string.trim().parse::<i32>()?;
 
-    let mut lineBuffer = String::new();
+    let mut line_buffer = String::new();
 
     for _i in 0..number_count {
-        reader.read_line(&mut lineBuffer)?;
+        reader.read_line(&mut line_buffer)?;
 
-        println!("line: {}", lineBuffer);
+        println!("line: {}", line_buffer);
 
         // Trim to avoid newline.
-        instance.numbers.push(lineBuffer.trim().parse::<u64>()?);
-        lineBuffer.clear();
+        instance.numbers.push(line_buffer.trim().parse::<u64>()?);
+        line_buffer.clear();
     }
 
     // Get the requests for the DS.

@@ -50,6 +50,7 @@ async fn real_main(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn load_file(file_path: &Path) -> Result<String, Box<dyn Error>> {
     let file_content = fs::read_to_string(file_path)?;
     Ok(file_content)

@@ -1,5 +1,3 @@
-use super::Bitvector;
-
 use std::collections::HashMap;
 
 type TupleKey = (Vec<bool>, u64);
@@ -20,6 +18,7 @@ pub struct Rank1 {
     rank1_lookup_table: HashMap<TupleKey, u32>,
 }
 
+#[allow(dead_code)]
 impl Rank1 {
     pub fn new(data: &Vec<bool>) -> Self {
         let n = data.len() as f64;
@@ -170,6 +169,21 @@ impl Rank1 {
 
         let block_end = block_start + self.block_size as usize;
 
+        // Copying might be slow, but current alternative is conversion to
+        // u32/64.
+        //
+        // Anyway, only have to copy here because I have to reverse.
+        // Think about why that is later... .
+        //
+        // a) Isn't block stored from smallest to biggest?
+        //    Why do I get the correct block with block_start and block_end,
+        //    but reversed compared to lookup table?
+        //    Is lookup table created biggest to smallest?
+        //
+        //    Seems conversion fron u64 to Vec<bool> is done from biggest to
+        //    smallest. When fixing it: Have to adapt TupleKey because
+        //    [TupleKey] does not allow substitution using &[bool] like
+        //    recursive HashMap lookup_table[&block[..]]lookup] does.
         let mut block = data[block_start..block_end].to_vec();
 
         // Reversing necessary because otherwise wrong order.

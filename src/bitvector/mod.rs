@@ -1,7 +1,6 @@
 mod rank1;
 mod select1;
 
-use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
 
@@ -22,6 +21,7 @@ pub enum MyError {
     Select1GotZero,
     Select1NotEnough1s,
     Select1OutOfBounds,
+    Select1SuperblockIndexOutOfBounds,
 }
 
 impl fmt::Display for MyError {
@@ -33,12 +33,16 @@ impl fmt::Display for MyError {
             MyError::Select1OutOfBounds => {
                 f.write_str("select1 out of bounds due to not enough 1s")
             }
+            MyError::Select1SuperblockIndexOutOfBounds => {
+                f.write_str("select1 superblock index out of bounds")
+            }
         }
     }
 }
 
 impl Error for MyError {}
 
+#[allow(dead_code)]
 impl Bitvector {
     // Passes in a vector of 0s and 1s with lowest bits first.
     fn from_vec(vec: Vec<u8>) -> Result<Self, MyError> {

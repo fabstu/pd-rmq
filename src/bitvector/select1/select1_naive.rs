@@ -10,7 +10,6 @@ pub struct Select1Naive {
     // Why do I have b here? Its the superblock #1s, and this here
     // is inside the block.
     b: u32,
-    why
     // #1s in block. Why is this here?
     // Isn't this redundant with length of answers?
     //

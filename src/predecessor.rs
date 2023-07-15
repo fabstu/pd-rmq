@@ -107,8 +107,8 @@ impl PD {
         // Split into lower and upper.
         let (lower, pi) = self.split(i);
 
-        let mut lower_bound = self.upper.select0(pi as u64);
-        let upper_bound_excluding = self.upper.select0(pi as u64 + 1);
+        let mut lower_bound = self.upper.select0(pi as u64)?;
+        let upper_bound_excluding = self.upper.select0(pi as u64 + 1)?;
 
         if lower_bound == upper_bound_excluding - 1 {
             // Bucket is empty. Just get the next-lower value.
@@ -147,7 +147,7 @@ impl PD {
         // Find first smaller than lower in lower.
         for j in lower_bound..upper_bound_excluding {}
 
-        self.upper.select0(i) + i;
+        self.upper.select0(i)? + i;
 
         return Ok(3);
     }

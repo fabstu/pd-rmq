@@ -233,7 +233,7 @@ impl Select1 {
         //
         // But restricting it to < ensures the problems is immediately obivous
         // while ensuring I can access the current blocks' end.
-        if superblock_number >= self.superblock_end_index.len() as u64 {
+        if superblock_number > self.superblock_end_index.len() as u64 {
             return Err(MyError::Select1SuperblockIndexOutOfBounds);
         }
 
@@ -257,8 +257,16 @@ impl Select1 {
 
         // Add in-superblock depending on naive or  sub-superblocks with (naive or lookup table).
 
-        let this_superblock_end_index: usize =
-            self.superblock_end_index[superblock_number as usize] as usize;
+        let this_superblock_end_index: usize;
+
+        if superblock_number as usize == self.superblock_end_index.len() {
+            // The last superblock does not have a full block.
+            this_superblock_end_index = data.len() - 1;
+        } else {
+            // Read this non-last superblock's end index.
+            this_superblock_end_index =
+                self.superblock_end_index[superblock_number as usize] as usize;
+        }
 
         let in_block_offset: u64;
 

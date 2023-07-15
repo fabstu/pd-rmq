@@ -175,7 +175,7 @@ impl Rank1 {
         //    smallest. When fixing it: Have to adapt TupleKey because
         //    [TupleKey] does not allow substitution using &[bool] like
         //    recursive HashMap lookup_table[&block[..]]lookup] does.
-        let mut block = data[block_start..block_end].to_vec();
+        let block = data[block_start..block_end].to_vec();
 
         // Reversing necessary because otherwise wrong order.
         // This might be slow.. .

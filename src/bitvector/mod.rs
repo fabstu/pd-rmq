@@ -1,12 +1,19 @@
+mod rank1;
+mod select1;
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::fmt;
+
+pub use rank1::*;
+pub use select1::*;
 
 // type BitVector = Vec<bool>;
 type TupleKey = (Vec<bool>, u64);
 
 #[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {
+    // - MARK: Rank1
     block_bits: u64,
     superblock_bits: u64,
     block_size: u64,
@@ -19,7 +26,33 @@ pub struct Bitvector {
     // Lookup of 1s up to the given position: (block, offset_in_block)
     rank1_lookup_table: HashMap<TupleKey, u32>,
 
+    // - MARK: Data
     data: Vec<bool>,
+
+    // - MARK: Select1
+
+    //todo("implement select1")
+    // For each superblock this naive or the sub-blocks with naive or lookup table.
+    // For size < log^4 n sub-block:
+    // select1Naive: Select1Naive,
+    // select1_lookup_table: HashMap<u64, u64>,
+
+    // Each superblock stores b #1s up to the start of the superblock.
+    // This array contains the index the superblock
+    // starts at.
+    // Or ends at?
+    //
+    // Well.. the slides noted floor(i/b) - 1 for the superblock index.
+    // So.. maybe that means the end of the previous superblock.
+    // So.. superstep_end_index[last-superblock] is never called.
+    //
+    // Although using end_index and -1 means I have to special-case
+    // access to the 1st superblock. Or return 0 if a negative index is
+    // accessed.
+    //
+    // Not sure whether superstep_1s[0] is 0 or the size of the 1st superblock.
+    // If it is the index of the 1st superblock, then have to
+    superstep_end_index: Vec<u64>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -176,109 +209,6 @@ impl Bitvector {
         }
     }
 
-    pub fn rank1(&self, i: u64) -> u64 {
-        //let superblock_index = i / self.superblock_size;
-
-        // Cuts off block-part by converting to usize.
-        let superblock_index = (i / self.superblock_size) as usize;
-
-        // Go into superblock, and then into block.
-        let block_index = ((i % self.superblock_size) / self.block_size) as usize;
-
-        let superblock_offset = superblock_index * self.superblock_size as usize;
-
-        let block_start = superblock_offset + block_index * self.block_size as usize;
-
-        let block_end = block_start + self.block_size as usize;
-
-        let mut block = self.data[block_start..block_end].to_vec();
-
-        // Reversing necessary because otherwise wrong order.
-        block.reverse();
-
-        let lookup = i % self.block_size;
-
-        println!("block: {:?} lookup: {}", block, lookup,);
-
-        println!(
-            "block_loockedup: {}",
-            self.rank1_lookup_table[&(block.clone(), lookup)] as u64
-        );
-
-        return self.rank1_superblock_1s[superblock_index]
-            + self.rank1_block_1s[superblock_index][block_index]
-            + self.rank1_lookup_table[&(block, lookup)] as u64;
-    }
-
-    pub fn rank0(&self, i: u64) -> u64 {
-        return i - self.rank1(i);
-    }
-
-    // pub fn rank1_simple(&self, i: u64) -> u64 {
-    //     let mut count = 0;
-    //     for j in 0..i {
-    //         if self.data[j as usize] {
-    //             count += 1;
-    //         }
-    //     }
-    //     count
-    // }
-
-    pub fn select1(&self, i: u64) -> Result<u64, MyError> {
-        if i == 0 {
-            return Err(MyError::Select1GotZero);
-        }
-        if i >= self.data.len() as u64 {
-            return Err(MyError::Select1OutOfBounds);
-        }
-
-        let mut count = 0;
-        for j in 0..self.data.len() as u64 {
-            if self.data[j as usize] {
-                count += 1;
-            }
-            if count == i {
-                return Ok(j);
-            }
-        }
-
-        return Err(MyError::Select1NotEnough1s);
-    }
-
-    pub fn select1_simple(&self, i: u64) -> Result<u64, MyError> {
-        if i == 0 {
-            return Err(MyError::Select1GotZero);
-        }
-        if i >= self.data.len() as u64 {
-            return Err(MyError::Select1OutOfBounds);
-        }
-
-        let mut count = 0;
-        for j in 0..self.data.len() as u64 {
-            if self.data[j as usize] {
-                count += 1;
-            }
-            if count == i {
-                return Ok(j);
-            }
-        }
-
-        return Err(MyError::Select1NotEnough1s);
-    }
-
-    pub fn select0(&self, i: u64) -> u64 {
-        let mut count = 0;
-        for j in 0..self.data.len() as u64 {
-            if self.data[j as usize] {
-                count += 1;
-            }
-            if count == i {
-                return count;
-            }
-        }
-        panic!("select out of bounds");
-    }
-
     fn u64_to_vec_bool(n: u64, bit_size: u64) -> Vec<bool> {
         // Find out how many bits are required to represent the number.
 
@@ -332,17 +262,17 @@ mod tests {
 
         let bit_vector = Bitvector::from_vec(vec).unwrap();
 
-        let select1_fn = |i| bit_vector.select1(i);
-        let select1_simple_fn = |i| bit_vector.select1_simple(i);
-
-        testing_select1_variants(select1_fn);
-        testing_select1_variants(select1_simple_fn);
+        testing_select1_variants(|i| bit_vector.select1_simple(i));
+        testing_select1_variants(|i| bit_vector.select1_naive(i));
+        testing_select1_variants(|i| bit_vector.select1(i));
     }
 
     fn testing_select1_variants<F>(select1: F)
     where
         F: Fn(u64) -> Result<u64, MyError>,
     {
+        // Except.. the documentation for Elias-Fano (pred)
+        // assumes that select0(0) return 0.
         assert_eq!(select1(0).unwrap_err(), MyError::Select1GotZero);
         assert_eq!(select1(1).unwrap(), 0);
         assert_eq!(select1(2).unwrap(), 2);

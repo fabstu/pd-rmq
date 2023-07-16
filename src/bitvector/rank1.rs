@@ -25,11 +25,16 @@ impl Rank1 {
     pub fn new(data: &Vec<bool>) -> Self {
         let n = data.len() as f64;
 
-        let block_bitsize = (n.log2() / 2.0).floor().round() as u64;
+        let block_bitsize = (n.log2() / 2.0).ceil().round() as u64;
         let superblock_bitsize = block_bitsize * block_bitsize;
 
         let block_size = 2u64.pow(block_bitsize as u32);
         let superblock_size = 2u64.pow(superblock_bitsize as u32);
+
+        println!(
+            "rank1::new block_bitsize: {} superblock_bitsite: {} block_size: {} superblock_size: {}",
+            block_bitsize, block_size, block_size, superblock_size
+        );
 
         //
         // Initialize block and superblock arrays.
@@ -37,9 +42,8 @@ impl Rank1 {
         // superblock_1s[superblock] -> #1s in superblock.
         //
         let mut superblock_1s = vec![0u64; (superblock_size + 1) as usize];
-        //
+
         // block_1s[superblock][block] -> #1s in block.
-        //
         let mut block_1s =
             vec![vec![0u64; (block_size + 1) as usize]; (superblock_size + 1) as usize];
 
@@ -76,6 +80,13 @@ impl Rank1 {
 
                 // Remove rank of superblock.
                 let block_rank = rank - superblock_rank;
+
+                // How can I get a too-big block_index here?
+                // 17 when max passable index is block_size=16
+                //
+                // Maybe because we round down when calculating block_bitsize?
+                // This would mean the last block is not covered, as is the case
+                // in select1.
 
                 block_1s[superblock_index][block_index] = block_rank;
             }

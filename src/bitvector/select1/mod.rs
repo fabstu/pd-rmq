@@ -93,7 +93,7 @@ impl Select1 {
                 b = (n as f64).log2().floor() as u32;
             } else {
                 // Calculate b' as Wurzel(log2 n) instead when in the subblock.
-                b = (n as f64).log2().floor() as u32;
+                b = (n as f64).log2().sqrt().floor() as u32;
             }
         }
 

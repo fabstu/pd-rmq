@@ -61,8 +61,9 @@ impl Bitvector {
         let select1 = Select1::new(&data, true, false);
         let select0 = Select1::new(&data, false, false);
 
-        println!("Select1-overall: {:#?}", select1);
-        println!("Select0-overall: {:#?}", select0);
+        //println!("Select1-overall: {:?}", select1);
+        //println!("Select1-overall: {:#?}", select1);
+        //println!("Select0-overall: {:#?}", select0);
 
         Self {
             rank: Rank1::new(&data),
@@ -235,7 +236,7 @@ fn testing_select1_thorough() {
     // Create a seeded RNG
     let mut rng = StdRng::from_seed(seed);
 
-    let vec: Vec<bool> = (0..20).map(|_| rng.gen_range(0..2) == 1).collect();
+    let vec: Vec<bool> = (0..250).map(|_| rng.gen_range(0..2) == 1).collect();
 
     let bit_vector = Bitvector::new(vec.clone());
 

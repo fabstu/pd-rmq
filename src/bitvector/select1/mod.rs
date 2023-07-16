@@ -507,9 +507,16 @@ impl Select1 {
                     is1,
                 ));
             } else {
-                todo
+                // todo
                 // Problem: It can happen that b == 0, because there is
                 // only one element inside.
+                //
+                // Problem hereby is, that the size is supposed to be 7,
+                // and that is already covered by the two previous naive blocks.
+                //
+                // So.. this 3rd block essentially repeats a block, which is
+                // bad.
+                // Ah not that is wrong as well. Its the last main superblock.
 
                 // Subblock.
                 println!(
@@ -560,7 +567,10 @@ impl Select1 {
     fn lookup_table_select(&self, data: &[bool], i: u64) -> u64 {
         // Problem: block with 2 bits is passed in but
         // lookup_table only contains 3-bit blocks to look up.
-        println!("lookup_table_select: block={:?} i={}", data, i);
+        println!(
+            "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
+            data, i, self.lookup_table
+        );
         self.lookup_table[data][&i]
     }
 

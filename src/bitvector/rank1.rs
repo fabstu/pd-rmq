@@ -87,7 +87,8 @@ impl Rank1 {
                 );
             }
 
-            if i % block_size as usize == 0 {
+            // First scope to superblock size, then to block size.
+            if (i % superblock_size as usize) % block_size as usize == 0 {
                 // Cuts off block-part by converting to usize.
                 let superblock_index = i / superblock_size as usize;
 
@@ -209,7 +210,11 @@ impl Rank1 {
         let block_start = superblock_offset + block_index * self.block_size as usize;
 
         // Except for end of slize.
+        //
+        // But.. aren't we supposed to only count to the block?
+        // Yes. Here we just prepare the block for lookup later.
         let mut block_end = block_start + self.block_size as usize;
+
         // Account for the last block not being completely filled.
         block_end = min(block_end, data.len());
 
@@ -246,7 +251,13 @@ impl Rank1 {
         // return lowest to highest significant bit.
         //block.reverse();
 
-        let lookup = i % self.block_size;
+        // What is this doing? I want to get lookup-i for inside the block.
+        // Well.. if I don't do it, then i will be bigger.
+        //
+        // Is superblock_size being uneven an issue here?
+        // Yea.. so first cutting down to superblock_size, then to block_size.
+        // This removed the issue with lookup introducing +X unnecessarily.
+        let lookup = (i % self.superblock_size) % self.block_size;
 
         // println!("block: {:?} lookup: {}", block, lookup,);
 
@@ -258,9 +269,14 @@ impl Rank1 {
         println!(
             "Superblock rank1: {} block-rank1: {} lookup-rank1: {}",
             self.rank1_superblock_1s[superblock_index],
+            // Does for block_index == 0 this store the rank1 up to the 1st
+            // block, or rather after the 1st block?
             self.rank1_block_1s[superblock_index][block_index],
             self.lookup_table_rank1(block, lookup)
         );
+
+        // Problem: With i=151 and superblock-size being 151, this somehow
+        // still includes the block with block_start from 151 to 164.
 
         return self.rank1_superblock_1s[superblock_index]
             + self.rank1_block_1s[superblock_index][block_index]
@@ -268,13 +284,10 @@ impl Rank1 {
     }
 
     fn lookup_table_rank1(&self, block: &[bool], lookup: u64) -> u64 {
-        println!(
-            "Lookup table rank1: block_size: {} block: {:?} lookup: {}",
-            self.lookup_table_block_size, block, lookup
-        );
+        let result: u64;
 
         if block.len() == self.lookup_table_block_size as usize {
-            return self.rank1_lookup_table[&(block.to_vec(), lookup)] as u64;
+            result = self.rank1_lookup_table[&(block.to_vec(), lookup)] as u64;
         } else {
             let block_size: usize = self.lookup_table_block_size as usize;
             let mut filled_block: Vec<bool> = Vec::with_capacity(block_size);
@@ -283,10 +296,15 @@ impl Rank1 {
                 filled_block.push(false);
             }
 
-            return self.rank1_lookup_table[&(filled_block, lookup)] as u64;
+            result = self.rank1_lookup_table[&(filled_block, lookup)] as u64;
         }
 
-        //return self.rank1_lookup_table[&(block, lookup)] as u64;
+        println!(
+            "Lookup table rank1: block_size: {} block: {:?} lookup: {} -> {}",
+            self.lookup_table_block_size, block, lookup, result
+        );
+
+        return result;
     }
 
     pub fn rank0(&self, data: &[bool], i: u64) -> u64 {

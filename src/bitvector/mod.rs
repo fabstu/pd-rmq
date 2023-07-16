@@ -10,6 +10,8 @@ pub use select1::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
+const TEST_RANGE_THOROUGH: usize = 5000;
+
 #[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {
     rank: Rank1,
@@ -230,8 +232,6 @@ where
     // Out of bounds of the bitvector, can never be that many 1s.
     assert_eq!(select0(16).unwrap_err(), MyError::Select1OutOfBounds);
 }
-
-const TEST_RANGE_THOROUGH: usize = 1000;
 
 #[test]
 fn testing_select1_thorough() {

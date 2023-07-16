@@ -4,6 +4,8 @@ type TupleKey = (Vec<bool>, u64);
 
 use super::u64_to_vec_bool;
 
+use core::cmp::min;
+
 // Have Rank1 data here to be able to keep initializer here aswell.
 #[derive(MallocSizeOf, Clone)]
 pub struct Rank1 {
@@ -18,6 +20,7 @@ pub struct Rank1 {
     rank1_block_1s: Vec<Vec<u64>>,
     // Lookup of 1s up to the given position: (block, offset_in_block)
     rank1_lookup_table: HashMap<TupleKey, u32>,
+    lookup_table_block_size: u32,
 }
 
 #[allow(dead_code)]
@@ -151,6 +154,7 @@ impl Rank1 {
             rank1_superblock_1s: superblock_1s,
             rank1_block_1s: block_1s,
             rank1_lookup_table: rank1_lookup_table,
+            lookup_table_block_size: block_size as u32,
         }
     }
 }
@@ -169,7 +173,10 @@ impl Rank1 {
 
         let block_start = superblock_offset + block_index * self.block_size as usize;
 
-        let block_end = block_start + self.block_size as usize;
+        // Except for end of slize.
+        let mut block_end = block_start + self.block_size as usize;
+        // Account for the last block not being completely filled.
+        block_end = min(block_end, data.len());
 
         // Copying might be slow, but current alternative is conversion to
         // u32/64.
@@ -186,7 +193,7 @@ impl Rank1 {
         //    smallest. When fixing it: Have to adapt TupleKey because
         //    [TupleKey] does not allow substitution using &[bool] like
         //    recursive HashMap lookup_table[&block[..]]lookup] does.
-        let block = data[block_start..block_end].to_vec();
+        let block = &data[block_start..block_end];
 
         // Reversing necessary because otherwise wrong order.
         // This might be slow.. .
@@ -210,20 +217,37 @@ impl Rank1 {
 
         return self.rank1_superblock_1s[superblock_index]
             + self.rank1_block_1s[superblock_index][block_index]
-            + self.rank1_lookup_table[&(block, lookup)] as u64;
+            + self.lookup_table_rank1(block, lookup);
+    }
+
+    fn lookup_table_rank1(&self, block: &[bool], lookup: u64) -> u64 {
+        if block.len() == self.lookup_table_block_size as usize {
+            return self.rank1_lookup_table[&(block.to_vec(), lookup)] as u64;
+        } else {
+            let block_size: usize = self.lookup_table_block_size as usize;
+            let mut filled_block: Vec<bool> = Vec::with_capacity(block_size);
+            filled_block.extend_from_slice(block);
+            while filled_block.len() < block_size {
+                filled_block.push(false);
+            }
+
+            return self.rank1_lookup_table[&(filled_block, lookup)] as u64;
+        }
+
+        //return self.rank1_lookup_table[&(block, lookup)] as u64;
     }
 
     pub fn rank0(&self, data: &[bool], i: u64) -> u64 {
         return i - self.rank1(data, i);
     }
 
-    // pub fn rank1_simple(&self, i: u64) -> u64 {
-    //     let mut count = 0;
-    //     for j in 0..i {
-    //         if self.data[j as usize] {
-    //             count += 1;
-    //         }
-    //     }
-    //     count
-    // }
+    pub fn rank1_simple(&self, data: &[bool], i: u64) -> u64 {
+        let mut count = 0;
+        for j in 0..i {
+            if data[j as usize] {
+                count += 1;
+            }
+        }
+        count
+    }
 }

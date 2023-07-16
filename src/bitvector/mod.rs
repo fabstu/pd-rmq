@@ -79,6 +79,9 @@ impl Bitvector {
     pub fn rank0(&self, i: u64) -> u64 {
         self.rank.rank0(&self.data[..], i)
     }
+    pub fn rank1_simple(&self, i: u64) -> u64 {
+        self.rank.rank1_simple(&self.data[..], i)
+    }
 
     pub fn select0(&self, i: u64) -> Result<u64, MyError> {
         println!("Select0: {}", i);
@@ -252,5 +255,29 @@ fn testing_select1_thorough() {
 
         assert_eq!(select1_simple, select1_naive);
         assert_eq!(select1_simple, select1);
+    }
+}
+
+#[test]
+fn testing_rank1_thorough() {
+    // Define a seed as an array
+    let seed = [0; 32];
+
+    // Create a seeded RNG
+    let mut rng = StdRng::from_seed(seed);
+
+    let vec: Vec<bool> = (0..250).map(|_| rng.gen_range(0..2) == 1).collect();
+
+    let bit_vector = Bitvector::new(vec.clone());
+
+    for i in 0..vec.len() {
+        print!("Testing rank1 i={} ", i);
+
+        println!("Testing simple");
+        let rank1_simple = bit_vector.rank1_simple(i as u64);
+        println!("Testing succinct");
+        let rank1 = bit_vector.rank1(i as u64);
+
+        assert_eq!(rank1_simple, rank1);
     }
 }

@@ -57,6 +57,7 @@ impl PD {
         //
         // Its only used for pi_divisor and for initial splitting into lower.
         // But since it was zero, ...?
+        //
         let u = numbers[numbers.len() - 1];
 
         // Number of numbers.
@@ -64,10 +65,21 @@ impl PD {
         let n_float = numbers.len() as f64;
 
         // n bit intgers
+
+        // Switched lower_bits and upper_bits.
+        // Except.. access expects to find true in upper for access.
+        //
+        // And.. also for predecessor. It specifically uses true
+        // to determine at what indices to start searching in lower
+        // by counting and select0(msb)-ing.
+        //
+        // So... choosing both the same might work.
+
         let lower_bits = n_float.log2().ceil() as i32;
         // Is 44 for n=1.000.000 with upper=20!
         // Fixed ceil -> floor to not get 45.
-        let upper_bits = max(((u as f64).log2() - n_float.log2()).ceil() as i32, 2);
+        // let upper_bits = max(((u as f64).log2() - n_float.log2()).ceil() as i32, 2);
+        let upper_bits = n_float.log2().ceil() as i32;
 
         let mut upper_vec: Vec<bool> = vec![false; 2 * n + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
@@ -75,7 +87,7 @@ impl PD {
         // How do I handle upper_bits = 0?
         // a) Use 1 by default.
         // b) Sepcial-case insertion into upper (skipping it).
-        let pi_divisor = 2u32.pow(upper_bits as u32 - 1) as u64;
+        let pi_divisor = 2u32.pow(upper_bits as u32) as u64;
 
         // Sort numbers.
 
@@ -137,7 +149,12 @@ impl PD {
     // -> einzelne bits lesen.
     #[allow(dead_code)]
     pub fn access(&self, i: u64) -> Result<u64, MyError> {
-        println!("access({}) - upper_select1: {}", i, self.upper.select1(i)?);
+        println!(
+            "access({}) - upper_select1({}): {}",
+            i,
+            i,
+            self.upper.select1(i)?
+        );
 
         // Crashes for i == 1 because upper.select1(1) returns 0.
         // Isn't i supposed to be something akin to be added to?
@@ -174,7 +191,9 @@ impl PD {
         if i == 0 {
             upper_part = self.upper.select1(i)? - i;
         } else {
-            upper_part = self.upper.select1(i + 1)? - i;
+            // Working around peculiarity that select1 is 1-based,
+            // while returning 0 for select1(0).
+            upper_part = self.upper.select1(i)? + 1 - i;
         }
 
         let mut lower_part = 0;
@@ -267,6 +286,10 @@ impl PD {
         //
         // Can be sped up getting bucket boundaries and
         // halving each time for O(n log n).
+
+        todo
+        // Problem: This can go outside the bucket,
+        // in which case the last of the bucket is supposed to be returned.
         for i in ith_in_original_numbers..self.numbers_count {
             let start = (i * self.lower_bits) as usize;
             let end = start + self.lower_bits as usize;

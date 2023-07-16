@@ -43,6 +43,7 @@ pub struct Select1 {
     in_superblock: Vec<InSuperblockSelect>,
 
     lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>>,
+    lookup_table_block_size: u32,
 
     is_subblock: bool,
 }
@@ -221,7 +222,7 @@ impl Select1 {
             // but the lookup_table blocksize was 3bit, making the app crash.
             //
             // So.. -1 for now.
-            let block = u64_to_vec_bool(i, maximum_block_size_in_bits - 1);
+            let block = u64_to_vec_bool(i, maximum_block_size_in_bits);
             let mut block_lookups: HashMap<u64, u64> = HashMap::new();
 
             let number_of_ones_zeroes = block.iter().filter(|v| **v == is1).count() as u64;
@@ -299,6 +300,7 @@ impl Select1 {
             in_superblock: in_superblock,
             superblock_end_index: superblock_end_index,
             lookup_table: select_lookup_table,
+            lookup_table_block_size: maximum_block_size_in_bits as u32,
             is_subblock: is_subblock,
         }
     }
@@ -316,7 +318,12 @@ impl Select1 {
             return Ok(0);
         }
         if i >= data.len() as u64 {
-            println!("Accesing i={} in data of len={}", i, data.len());
+            println!(
+                "{} Accesing i={} in data of len={}",
+                space(self.is1, self.is_subblock),
+                i,
+                data.len()
+            );
             return Err(MyError::Select1OutOfBounds);
         }
 
@@ -437,8 +444,12 @@ impl Select1 {
             InSuperblockSelect::Subblock(ref subblock) => {
                 // What data to pass here?
                 println!(
-                    "Subblock select super_number={} b={} i={} i-inside={}",
-                    superblock_number, self.b, i, i_excluding_previous_superblocks
+                    "{} Subblock select super_number={} b={} i={} i-inside={}",
+                    space(self.is1, self.is_subblock),
+                    superblock_number,
+                    self.b,
+                    i,
+                    i_excluding_previous_superblocks
                 );
 
                 in_block_offset = subblock.select(
@@ -579,7 +590,21 @@ impl Select1 {
             "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
             data, i, self.lookup_table
         );
-        self.lookup_table[data][&i]
+
+        // Extend lookup-block if necessary.
+
+        if data.len() == self.lookup_table_block_size as usize {
+            return self.lookup_table[data][&i];
+        } else {
+            let block_size: usize = self.lookup_table_block_size as usize;
+            let mut filled_block: Vec<bool> = Vec::with_capacity(block_size);
+            filled_block.extend_from_slice(data);
+            while filled_block.len() < block_size {
+                filled_block.push(false);
+            }
+
+            return self.lookup_table[&filled_block][&i];
+        }
     }
 
     pub fn select_simple(&self, data: &[bool], i: u64) -> Result<u64, MyError> {

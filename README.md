@@ -42,3 +42,11 @@ But:
 
 Question anyway:
 - What about multiple lookups needing different amount of block-size? Probably have to generate for multiple block-sizes instead of the current monstrocity.
+
+## Problem lookup_table not matching length.
+
+- a) Convert all to u32
+- b) Fill up with falses up to the lookup_table width.
+  - Might have to copy.
+- c) Special-case 
+

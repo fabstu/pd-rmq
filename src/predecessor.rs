@@ -3,6 +3,7 @@ use super::heapsize;
 use super::instances;
 use super::report;
 
+use std::cmp::max;
 use std::path::Path;
 use std::time::Instant;
 
@@ -41,7 +42,21 @@ impl PD {
     pub fn new(numbers: &mut Vec<u64>) -> Self {
         numbers.sort();
 
+        // TODO:
         // Biggest number in universe.
+        //
+        // Except.. this means that for u=10, lower_bits is zero.
+        // This means that the lower_bits cannot be stored despite needing
+        // storing, which means self.access(i) is broken.
+        //
+        // But.. I can't selectively use a higher lower_bits,
+        // because lower_bits is used to reconstruct the lower bits.
+        //
+        // Idea: Can just choose appropriate lower_bits,
+        // since upper_Bits is never used.
+        //
+        // Its only used for pi_divisor and for initial splitting into lower.
+        // But since it was zero, ...?
         let u = numbers[numbers.len() - 1];
 
         // Number of numbers.
@@ -49,14 +64,17 @@ impl PD {
         let n_float = numbers.len() as f64;
 
         // n bit intgers
-        let upper_bits = n_float.log2().ceil() as i32;
+        let lower_bits = n_float.log2().ceil() as i32;
         // Is 44 for n=1.000.000 with upper=20!
         // Fixed ceil -> floor to not get 45.
-        let lower_bits = ((u as f64).log2() - n_float.log2()).ceil() as i32;
+        let upper_bits = max(((u as f64).log2() - n_float.log2()).ceil() as i32, 2);
 
         let mut upper_vec: Vec<bool> = vec![false; 2 * n + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
 
+        // How do I handle upper_bits = 0?
+        // a) Use 1 by default.
+        // b) Sepcial-case insertion into upper (skipping it).
         let pi_divisor = 2u32.pow(upper_bits as u32 - 1) as u64;
 
         // Sort numbers.
@@ -141,10 +159,20 @@ impl PD {
         // i == 0 works by default because select1(0) returns 0 by default,
         // despite there being no 1.
 
+        // But.. removing the - i here or using the i does not help much,
+        // because the i does not care about 0s in between (the distinction
+        // between in-group 1s and between-group 0s).
+        //
+        // But.. how then do I choose u/upper_bits in a way that avoids
+        // upper_bits and lower_bits overlapping, where one bit cares for
+        // the other?
+        //
+        // Switched upper_bits and lower_bits.
+
         let upper_part: u64;
 
         if i == 0 {
-            upper_part = self.upper.select1(i + 1)? - i;
+            upper_part = self.upper.select1(i)? - i;
         } else {
             upper_part = self.upper.select1(i + 1)? - i;
         }
@@ -157,7 +185,7 @@ impl PD {
             lower_part = lower_part | (if bit { 1 } else { 0 } << j);
         }
 
-        return Ok((upper_part << self.lower_bits | lower_part) as u64);
+        return Ok((upper_part << (self.upper_bits - 1) | lower_part) as u64);
     }
 
     fn bits_to_u64(bits: &[bool]) -> u64 {
@@ -181,6 +209,13 @@ impl PD {
     }
 
     pub fn pred(&self, i: u64) -> Result<u64, MyError> {
+        // This returns mostly the wrong numbers because the -i removes
+        // the offset i, which currently with zero lower bits carries
+        // the offset in the bucket.
+        //
+        // And we also do not take the bucket
+        // into account: + bucket * pi_divisor.
+
         // Split into lower and upper.
         //
         // Quqestion: MSB is supposed to include zeroes and ones both, right?
@@ -293,12 +328,11 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
     if let Some(want) = want {
         let mut numbers = instance.numbers.clone();
         let pd = PD::new(&mut numbers);
-        let mut got = Vec::<u64>::new();
 
         for (i, query) in instance.queries.clone().iter().enumerate() {
             println!("Query nr {}: {}", i, query);
-            let got = (pd.pred(*query).unwrap());
-            assert_eq!(want[i], got);
+            let got = pd.pred(*query).unwrap();
+            assert_eq!(want[i], got, "Query nr {}: {}", i, query);
         }
 
         // assert_eq!(want, got);

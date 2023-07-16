@@ -82,14 +82,18 @@ impl Select1 {
         // Not sure whether floor or ceil or staying float.
         let b: u32;
 
-        if !is_subblock {
-            // let log_n = (n as f64).log2();
-            // b = (log_n * log_n) as u32;
-            //b = (n as f64).log2().powf(2.0).floor() as u32;
-            b = (n as f64).log2().floor() as u32;
+        if n <= 1 {
+            b = 1;
         } else {
-            // Calculate b' as Wurzel(log2 n) instead when in the subblock.
-            b = (n as f64).log2().floor() as u32;
+            if !is_subblock {
+                // let log_n = (n as f64).log2();
+                // b = (log_n * log_n) as u32;
+                //b = (n as f64).log2().powf(2.0).floor() as u32;
+                b = (n as f64).log2().floor() as u32;
+            } else {
+                // Calculate b' as Wurzel(log2 n) instead when in the subblock.
+                b = (n as f64).log2().floor() as u32;
+            }
         }
 
         println!("{} n={}, k={}, b={}", space(is1, is_subblock), n, k, b);
@@ -155,6 +159,10 @@ impl Select1 {
                 superblock_start = i + 1;
             }
         }
+
+        // if n == 1 {
+        //     // None was and added because b = 1.
+        // }
 
         if superblock_end < data.len() - 1 {
             println!("{} Last: ", space(is1, is_subblock));

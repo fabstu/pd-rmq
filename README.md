@@ -31,3 +31,14 @@ Observation:
 - 9 trues, so 3 blocks are necessary anyway.
 - 1st block ends with 4th true (correct)
 - 2nd-block ends with true (correct)
+
+Result:
+- Must allow one-element blocks.
+- No need to check for end-of-block, since n=1 means only one element fits.
+- Adding in_superblock manually since Last:
+- a) Set b = 1 when n = 1.
+But:
+- Can do using lookup table instead.
+
+Question anyway:
+- What about multiple lookups needing different amount of block-size? Probably have to generate for multiple block-sizes instead of the current monstrocity.

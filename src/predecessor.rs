@@ -54,10 +54,10 @@ impl PD {
         // Fixed ceil -> floor to not get 45.
         let lower_bits = ((u as f64).log2() - n_float.log2()).ceil() as i32;
 
-        let mut upper_vec: Vec<bool> = vec![false; 2 ^ n];
+        let mut upper_vec: Vec<bool> = vec![false; 2 * n + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
 
-        let pi_divisor = 2u32.pow(upper_bits as u32) as u64;
+        let pi_divisor = 2u32.pow(upper_bits as u32 - 1) as u64;
 
         // Sort numbers.
 
@@ -79,7 +79,15 @@ impl PD {
             // // that was too much.
             // let lower = number & ((1 << lowerBits) - 1);
 
-            upper_vec[pi * i] = true;
+            println!(
+                "Setting to true: number: {} i: {} pi: {} pi+i: {} pi_divisor: {}",
+                number,
+                i,
+                pi,
+                pi + i,
+                pi_divisor
+            );
+            upper_vec[pi + i] = true;
 
             // Iterate lower bits using shifting the j-th bit to the first
             // position and then only keeping that one value around while
@@ -91,6 +99,11 @@ impl PD {
                 lower_vec.push(bit == 1);
             }
         }
+
+        println!(
+            "PD::new - numbers: {:?} upper: {:?} lower: {:?} upper_bits: {} lower_bits: {}",
+            numbers, upper_vec, lower_vec, upper_bits, lower_bits
+        );
 
         return Self {
             numbers_count: n as u64,
@@ -106,7 +119,35 @@ impl PD {
     // -> einzelne bits lesen.
     #[allow(dead_code)]
     pub fn access(&self, i: u64) -> Result<u64, MyError> {
-        let upper_part = self.upper.select1(i.try_into().unwrap())? - i;
+        println!("access({}) - upper_select1: {}", i, self.upper.select1(i)?);
+
+        // Crashes for i == 1 because upper.select1(1) returns 0.
+        // Isn't i supposed to be something akin to be added to?
+        //
+        // Problem: My select1 is zero-based, so returning
+        //
+        // select(i + 1) does not help because then I get select1(1=5),
+        // when there are only four 1s.
+
+        // Ahhh! select0(0) to return 0 is just supposed to mean that
+        // the first bucket (which select0(0) is supposed to return is made
+        // as if it is there.
+        //
+        // So... by default, select1/0(0) returns
+        //
+        // Except.. the slides show select1(5) to return the 5th 1 and not
+        // the 6th 1.
+
+        // i == 0 works by default because select1(0) returns 0 by default,
+        // despite there being no 1.
+
+        let upper_part: u64;
+
+        if i == 0 {
+            upper_part = self.upper.select1(i + 1)? - i;
+        } else {
+            upper_part = self.upper.select1(i + 1)? - i;
+        }
 
         let mut lower_part = 0;
 
@@ -155,8 +196,16 @@ impl PD {
         // is the index in the lower vector, we can start scanning using this.
         let ith_in_original_numbers = self.upper.rank1(p + 1);
 
+        println!(
+            "pred({}) - p: {} ith: {} numbers_count: {}",
+            i, p, ith_in_original_numbers, self.numbers_count
+        );
+
         // p in upper is already false.
-        if self.upper.get(p + 1) == false {
+        //
+        // If ith is the last in the original numbers, then bucket is empty
+        // anyway. Except.. if i-th is much earlier, then
+        if ith_in_original_numbers == self.numbers_count - 1 || self.upper.get(p + 1) == false {
             // We are in a higher bucket, so the bucket was empty, so we need to
             // take the last from a smaller bucket and return that.
             return self.access(self.upper.rank1(p));
@@ -167,14 +216,17 @@ impl PD {
         // ith points to the first in that bucket.
         //
         // Two cases can happen:
-        // a) I find bigger in this bucket.
+        // a) I find bigger than lower in this bucket.
         // a1) ith is bigger: return self.access(ith-1)
         // a1.1) if ith-1 is zero, return self.access(0)
         // a1.2) if ith-1 is non-zero, return self.access(ith-1)
         // a2) other-than-ith is bigger: return self.access(bigger - 1)
-        // b) I find none bigger in this bucket, which means lower would be
-        //    biggest because it is in that bucket. Return the last in this
-        //    bucket.
+        // b) I find none bigger than lower in this bucket, which means lower
+        //    would be biggest because it is in that bucket. Return the last
+        //    in this bucket.
+        // c) If lower equals to lower_bits, return self.access(same).
+
+        // BUt.. what about ith == lower?
 
         // Iterate in lower_vec by lower_bits.
         //
@@ -185,7 +237,17 @@ impl PD {
             let end = start + self.lower_bits as usize;
 
             let bits: &[bool] = &self.lower[start..end];
-            if Self::bits_to_u64(bits) > lower {
+            let bits_number = Self::bits_to_u64(bits);
+
+            println!(
+                "i: {} start: {} end: {} bits: {:?} bits_number: {} lowr: {}",
+                i, start, end, bits, bits_number, lower
+            );
+
+            if bits_number == lower {
+                // c)
+                return self.access(i);
+            } else if bits_number > lower {
                 // a)
                 return self.access(Self::decrement_min_zero(i));
             }
@@ -233,11 +295,13 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
         let pd = PD::new(&mut numbers);
         let mut got = Vec::<u64>::new();
 
-        for query in instance.queries.clone() {
-            got.push(pd.pred(query).unwrap());
+        for (i, query) in instance.queries.clone().iter().enumerate() {
+            println!("Query nr {}: {}", i, query);
+            let got = (pd.pred(*query).unwrap());
+            assert_eq!(want[i], got);
         }
 
-        assert_eq!(want, got);
+        // assert_eq!(want, got);
     }
 
     // Start benchmark
@@ -245,10 +309,30 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
 }
 
 #[test]
+fn testing_pd_access() {
+    let pd = PD::new(&mut vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+
+    let got: Vec<u64> = (0..10).map(|i| pd.access(i).unwrap()).collect();
+
+    assert_eq!(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9], got);
+
+    // assert_eq!(0, pd.access(0).unwrap());
+    // assert_eq!(1, pd.access(1).unwrap());
+    // assert_eq!(2, pd.access(2).unwrap());
+    // assert_eq!(3, pd.access(3).unwrap());
+    // assert_eq!(4, pd.access(4).unwrap());
+    // assert_eq!(5, pd.access(5).unwrap());
+    // assert_eq!(6, pd.access(6).unwrap());
+    // assert_eq!(7, pd.access(7).unwrap());
+    // assert_eq!(8, pd.access(8).unwrap());
+    // assert_eq!(9, pd.access(9).unwrap());
+}
+
+#[test]
 fn testing_pd_benchmark() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_4.txt");
 
-    let want = vec![];
+    let want = vec![0, 0, 2, 2, 4, 4, 4, 7, 7, 7, 7];
 
     benchmark_and_check(path, Some(want));
 }

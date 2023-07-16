@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::result;
 
 mod select1_naive;
 

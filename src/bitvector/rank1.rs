@@ -28,15 +28,19 @@ impl Rank1 {
     pub fn new(data: &Vec<bool>) -> Self {
         let n = data.len() as f64;
 
-        let block_bitsize = (n.log2() / 2.0).ceil().round() as u64;
-        let superblock_bitsize = block_bitsize * block_bitsize;
+        // So many bits does block/superblock use?
+        let block_bitsize = (n.log2()).ceil().round() as u64;
+        let superblock_bitsize = (n.log2() * n.log2()).ceil() as u64;
 
-        let block_size = 2u64.pow(block_bitsize as u32);
-        let superblock_size = 2u64.pow(superblock_bitsize as u32);
+        let block_size = block_bitsize;
+        let superblock_size = superblock_bitsize;
+
+        //let block_size = 2u64.pow(block_bitsize as u32);
+        //let superblock_size = 2u64.pow(superblock_bitsize as u32);
 
         println!(
             "rank1::new block_bitsize: {} superblock_bitsite: {} block_size: {} superblock_size: {}",
-            block_bitsize, block_size, block_size, superblock_size
+            block_bitsize, superblock_bitsize, block_size, superblock_size
         );
 
         //
@@ -68,10 +72,19 @@ impl Rank1 {
         let mut superblock_rank = 0;
         for (i, &bit) in data.iter().enumerate() {
             if i % superblock_size as usize == 0 {
-                let superblock_index = superblock_size as usize;
+                let superblock_index = i / superblock_size as usize;
 
                 superblock_1s[superblock_index] = rank;
                 superblock_rank = rank;
+
+                println!(
+                    "Updating superblock={} i: {} data.len: {} superblock_rank: {} bit: {}",
+                    superblock_index,
+                    i,
+                    data.len(),
+                    superblock_rank,
+                    bit
+                );
             }
 
             if i % block_size as usize == 0 {
@@ -91,6 +104,16 @@ impl Rank1 {
                 // This would mean the last block is not covered, as is the case
                 // in select1.
 
+                println!(
+                    "Updating superblock={} block={}: i: {} data.len: {}block_rank: {} bit: {}",
+                    superblock_index,
+                    block_index,
+                    i,
+                    data.len(),
+                    block_rank,
+                    bit
+                );
+
                 block_1s[superblock_index][block_index] = block_rank;
             }
 
@@ -106,8 +129,20 @@ impl Rank1 {
         // But.. maybe using array indexes for lookup is faster though.
         let mut rank1_lookup_table: HashMap<TupleKey, u32> = HashMap::new();
 
+        let last_value = 2u64.pow(block_bitsize as u32);
+
+        // Problem: lookup table is too big.
+        //
+        // It currently needs for block_size=32 2^32 *32 iterations
+        // to create the 32-bit table.
+
         // All possible values for block_size.
         for i in 0..2u64.pow((block_size) as u32) {
+            println!(
+                "Creating lookup table block_size={} i={} last_value={}",
+                block_size, i, last_value
+            );
+
             // Get block bitvector pattern.
             let block = u64_to_vec_bool(i, block_size);
 
@@ -154,7 +189,7 @@ impl Rank1 {
             rank1_superblock_1s: superblock_1s,
             rank1_block_1s: block_1s,
             rank1_lookup_table: rank1_lookup_table,
-            lookup_table_block_size: block_size as u32,
+            lookup_table_block_size: block_bitsize as u32,
         }
     }
 }
@@ -177,6 +212,11 @@ impl Rank1 {
         let mut block_end = block_start + self.block_size as usize;
         // Account for the last block not being completely filled.
         block_end = min(block_end, data.len());
+
+        println!(
+            "rank1: i: {} superblock_index: {} block_index: {} block_start: {} block_end: {} superblock_size: {} block_size: {}",
+            i, superblock_index, block_index, block_start, block_end, self.superblock_size, self.block_size
+        );
 
         // Copying might be slow, but current alternative is conversion to
         // u32/64.
@@ -215,12 +255,24 @@ impl Rank1 {
         //     self.rank1_lookup_table[&(block.clone(), lookup)] as u64
         // );
 
+        println!(
+            "Superblock rank1: {} block-rank1: {} lookup-rank1: {}",
+            self.rank1_superblock_1s[superblock_index],
+            self.rank1_block_1s[superblock_index][block_index],
+            self.lookup_table_rank1(block, lookup)
+        );
+
         return self.rank1_superblock_1s[superblock_index]
             + self.rank1_block_1s[superblock_index][block_index]
             + self.lookup_table_rank1(block, lookup);
     }
 
     fn lookup_table_rank1(&self, block: &[bool], lookup: u64) -> u64 {
+        println!(
+            "Lookup table rank1: block_size: {} block: {:?} lookup: {}",
+            self.lookup_table_block_size, block, lookup
+        );
+
         if block.len() == self.lookup_table_block_size as usize {
             return self.rank1_lookup_table[&(block.to_vec(), lookup)] as u64;
         } else {

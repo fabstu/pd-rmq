@@ -132,7 +132,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn testing_rank1() {
+    fn testing_rank1_basic() {
         let vec: Vec<u8> = vec![1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0];
 
         println!("vec: {:?}", vec);
@@ -231,6 +231,8 @@ where
     assert_eq!(select0(16).unwrap_err(), MyError::Select1OutOfBounds);
 }
 
+const TEST_RANGE_THOROUGH: usize = 1000;
+
 #[test]
 fn testing_select1_thorough() {
     // Define a seed as an array
@@ -239,7 +241,9 @@ fn testing_select1_thorough() {
     // Create a seeded RNG
     let mut rng = StdRng::from_seed(seed);
 
-    let vec: Vec<bool> = (0..250).map(|_| rng.gen_range(0..2) == 1).collect();
+    let vec: Vec<bool> = (0..TEST_RANGE_THOROUGH)
+        .map(|_| rng.gen_range(0..2) == 1)
+        .collect();
 
     let bit_vector = Bitvector::new(vec.clone());
 
@@ -266,9 +270,13 @@ fn testing_rank1_thorough() {
     // Create a seeded RNG
     let mut rng = StdRng::from_seed(seed);
 
-    let vec: Vec<bool> = (0..250).map(|_| rng.gen_range(0..2) == 1).collect();
+    let vec: Vec<bool> = (0..TEST_RANGE_THOROUGH)
+        .map(|_| rng.gen_range(0..2) == 1)
+        .collect();
 
     let bit_vector = Bitvector::new(vec.clone());
+
+    println!("Test-vector: {:?}", vec);
 
     for i in 0..vec.len() {
         print!("Testing rank1 i={} ", i);

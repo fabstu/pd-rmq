@@ -156,6 +156,8 @@ impl PD {
             self.upper.select1(i)?
         );
 
+        assert!(i < self.numbers_count, "i must be smaller than n");
+
         // Crashes for i == 1 because upper.select1(1) returns 0.
         // Isn't i supposed to be something akin to be added to?
         //
@@ -186,25 +188,45 @@ impl PD {
         //
         // Switched upper_bits and lower_bits.
 
+        // question
+        // Why is upper_part not 1 for 2 upper_bits?
+
         let upper_part: u64;
 
         if i == 0 {
-            upper_part = self.upper.select1(i)? - i;
+            upper_part = self.upper.select1(i + 1)? - i;
         } else {
             // Working around peculiarity that select1 is 1-based,
             // while returning 0 for select1(0).
-            upper_part = self.upper.select1(i)? + 1 - i;
+            //
+            // Except: i + 1 for i == self.number_count goes over the limit.
+
+            if i == self.numbers_count {
+                upper_part = self.upper.select1(i + 1)? - i;
+            } else {
+                upper_part = self.upper.select1(i + 1)? - i;
+            }
         }
 
         let mut lower_part = 0;
 
         for j in 0..self.lower_bits as u64 {
+            // For acessing the last element, crashes.
+            // It accessed self.lower[8], while the size of lower is 8.
+            //
+            // Maybe fix it by making access zero-based?
+            // Or isn't it already?
             let bit = self.lower[(i * self.lower_bits + j) as usize];
 
             lower_part = lower_part | (if bit { 1 } else { 0 } << j);
         }
 
-        return Ok((upper_part << (self.upper_bits - 1) | lower_part) as u64);
+        println!(
+            "access({}) - upper_part: {} lower_part: {}",
+            i, upper_part, lower_part
+        );
+
+        return Ok((upper_part << (self.upper_bits) | lower_part) as u64);
     }
 
     fn bits_to_u64(bits: &[bool]) -> u64 {
@@ -220,7 +242,7 @@ impl PD {
     }
 
     fn decrement_min_zero(v: u64) -> u64 {
-        if v == 0 {
+        if v <= 0 {
             return 0;
         }
 
@@ -248,22 +270,45 @@ impl PD {
         //
         // Because the prefix sum up to and including that one
         // is the index in the lower vector, we can start scanning using this.
-        let ith_in_original_numbers = self.upper.rank1(p + 1);
+        let ith_in_original_numbers = self.upper.rank1(p + 1) - 1;
 
-        println!(
-            "pred({}) - p: {} ith: {} numbers_count: {}",
-            i, p, ith_in_original_numbers, self.numbers_count
-        );
+        // If ith is the last in the original numbers, then bucket is empty
+        // anyway. Except.. if i-th is much earlier, then.. .
+        if ith_in_original_numbers == self.numbers_count - 1 {
+            println!("pred exit: last number");
+            return self.access(ith_in_original_numbers);
+        }
 
         // p in upper is already false.
         //
-        // If ith is the last in the original numbers, then bucket is empty
-        // anyway. Except.. if i-th is much earlier, then
-        if ith_in_original_numbers == self.numbers_count - 1 || self.upper.get(p + 1) == false {
+
+        if self.upper.get(p + 1) == false {
+            println!("pred exit: bucket empty");
             // We are in a higher bucket, so the bucket was empty, so we need to
             // take the last from a smaller bucket and return that.
-            return self.access(self.upper.rank1(p));
+            //
+            //todo
+            // Might be an issue that rank1 returns up to 4 while self.access
+            // is zero-based.
+            //
+            // Except.. ith is the index in the original numbers, or is it not?
+            // So.. access is one-based?
+            // Except I subtract one except for zero.. maybe decrease only up
+            // to 1.
+            return self.access(self.upper.rank1(p) - 1);
         }
+
+        // Get the next bucket.
+        //
+        // But.. how do I handle there not being any bucket anymore?
+        let next_bucket_p = self.upper.select0(msb as u64 + 1)?;
+        // Indexes up to and including the last in the bucket
+        let last_in_bucket_ith = self.upper.rank1(next_bucket_p) - 1;
+
+        println!(
+            "pred({}) - msb: {} p: {} ith: {} numbers_count: {} last_in_bucket_ith: {}",
+            i, msb, p, ith_in_original_numbers, self.numbers_count, last_in_bucket_ith
+        );
 
         // This bucket is non-empty.
         //
@@ -287,10 +332,9 @@ impl PD {
         // Can be sped up getting bucket boundaries and
         // halving each time for O(n log n).
 
-        todo
         // Problem: This can go outside the bucket,
         // in which case the last of the bucket is supposed to be returned.
-        for i in ith_in_original_numbers..self.numbers_count {
+        for i in ith_in_original_numbers..=last_in_bucket_ith {
             let start = (i * self.lower_bits) as usize;
             let end = start + self.lower_bits as usize;
 
@@ -304,15 +348,22 @@ impl PD {
 
             if bits_number == lower {
                 // c)
+                println!("c)");
                 return self.access(i);
             } else if bits_number > lower {
                 // a)
+                println!("a)");
                 return self.access(Self::decrement_min_zero(i));
             }
         }
 
+        println!(
+            "lower: {} last_in_bucket_ith: {}",
+            lower, last_in_bucket_ith
+        );
+
         // b)
-        return self.access(Self::decrement_min_zero(ith_in_original_numbers));
+        return self.access(last_in_bucket_ith);
     }
 }
 
@@ -392,4 +443,17 @@ fn testing_pd_benchmark() {
     let want = vec![0, 0, 2, 2, 4, 4, 4, 7, 7, 7, 7];
 
     benchmark_and_check(path, Some(want));
+}
+
+#[test]
+fn testing_pd_split() {
+    let (mut lower, mut msb) = PD::split_with_bit_distribution(4, 2, 2);
+
+    assert_eq!(0, lower);
+    assert_eq!(1, msb);
+
+    (lower, msb) = PD::split_with_bit_distribution(1, 2, 2);
+
+    assert_eq!(1, lower);
+    assert_eq!(0, msb);
 }

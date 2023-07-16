@@ -9,8 +9,6 @@ use core::cmp::min;
 // Have Rank1 data here to be able to keep initializer here aswell.
 #[derive(MallocSizeOf, Clone)]
 pub struct Rank1 {
-    block_bits: u64,
-    superblock_bits: u64,
     block_size: u64,
     superblock_size: u64,
     // For each superblock, we store the number of 1s to the start of the
@@ -28,19 +26,18 @@ impl Rank1 {
     pub fn new(data: &Vec<bool>) -> Self {
         let n = data.len() as f64;
 
-        // So many bits does block/superblock use?
-        let block_bitsize = (n.log2()).ceil().round() as u64;
-        let superblock_bitsize = (n.log2() * n.log2()).ceil() as u64;
+        // Choose block_size much smaller than n.
+        let block_size = (n.log2() / 2.0).floor().round() as u64;
 
-        let block_size = block_bitsize;
-        let superblock_size = superblock_bitsize;
+        // Multiple of block_size.
+        let superblock_size = block_size.pow(2) as u64;
 
-        //let block_size = 2u64.pow(block_bitsize as u32);
-        //let superblock_size = 2u64.pow(superblock_bitsize as u32);
+        let superblock_count = (n / superblock_size as f64).floor() as u64;
+        let block_count = (n / block_size as f64).floor() as u64;
 
         println!(
-            "rank1::new block_bitsize: {} superblock_bitsite: {} block_size: {} superblock_size: {}",
-            block_bitsize, superblock_bitsize, block_size, superblock_size
+            "rank1::new - block_size: {} superblock_size: {}",
+            block_size, superblock_size
         );
 
         //
@@ -48,11 +45,11 @@ impl Rank1 {
         //
         // superblock_1s[superblock] -> #1s in superblock.
         //
-        let mut superblock_1s = vec![0u64; (superblock_size + 1) as usize];
+        let mut superblock_1s = vec![0u64; (superblock_count + 1) as usize];
 
         // block_1s[superblock][block] -> #1s in block.
         let mut block_1s =
-            vec![vec![0u64; (block_size + 1) as usize]; (superblock_size + 1) as usize];
+            vec![vec![0u64; (block_count + 1) as usize]; (superblock_count + 1) as usize];
 
         //
         // Calc 1s up to each superblock.
@@ -87,8 +84,9 @@ impl Rank1 {
                 );
             }
 
-            // First scope to superblock size, then to block size.
-            if (i % superblock_size as usize) % block_size as usize == 0 {
+            // No need to first scope to superblock_size because
+            // block_size it is divisible by block_size.
+            if i % block_size as usize == 0 {
                 // Cuts off block-part by converting to usize.
                 let superblock_index = i / superblock_size as usize;
 
@@ -130,7 +128,7 @@ impl Rank1 {
         // But.. maybe using array indexes for lookup is faster though.
         let mut rank1_lookup_table: HashMap<TupleKey, u32> = HashMap::new();
 
-        let last_value = 2u64.pow(block_bitsize as u32);
+        let last_value = 2u64.pow(block_size as u32);
 
         // Problem: lookup table is too big.
         //
@@ -183,14 +181,12 @@ impl Rank1 {
         // println!("block_bitsize: {} superblock_bitsize: {}, block_size: {}, superblock_size: {}, rank1_sb_1s: {}, rank1_block_1s: {}, lookup_count: {}", block_bitsize, superblock_bitsize, block_size, superblock_size, superblock_1s.len(), block_1s.len(), rank1_lookup_table.len());
 
         Self {
-            block_bits: block_bitsize,
-            superblock_bits: superblock_bitsize,
             block_size: block_size,
             superblock_size: superblock_size,
             rank1_superblock_1s: superblock_1s,
             rank1_block_1s: block_1s,
             rank1_lookup_table: rank1_lookup_table,
-            lookup_table_block_size: block_bitsize as u32,
+            lookup_table_block_size: block_size as u32,
         }
     }
 }
@@ -240,31 +236,9 @@ impl Rank1 {
         //    recursive HashMap lookup_table[&block[..]]lookup] does.
         let block = &data[block_start..block_end];
 
-        // Reversing necessary because otherwise wrong order.
-        // This might be slow.. .
-        //
-        // So todo later: Reverse stored blocks instead.
-        // But.. remember to maybe reverse block_start and block_end as well
-        // or something? Gets complicated.
-        //
-        // Not needing reverse probably anymore because fixed u64_to_vec_bool to
-        // return lowest to highest significant bit.
-        //block.reverse();
-
-        // What is this doing? I want to get lookup-i for inside the block.
-        // Well.. if I don't do it, then i will be bigger.
-        //
-        // Is superblock_size being uneven an issue here?
-        // Yea.. so first cutting down to superblock_size, then to block_size.
-        // This removed the issue with lookup introducing +X unnecessarily.
-        let lookup = (i % self.superblock_size) % self.block_size;
-
-        // println!("block: {:?} lookup: {}", block, lookup,);
-
-        // println!(
-        //     "block_loockedup: {}",
-        //     self.rank1_lookup_table[&(block.clone(), lookup)] as u64
-        // );
+        // Get index inside block. Don't have to divide by superblock_size first
+        // because that is dvidable by block_size by definition.
+        let lookup = i % self.block_size;
 
         println!(
             "Superblock rank1: {} block-rank1: {} lookup-rank1: {}",

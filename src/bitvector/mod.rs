@@ -7,9 +7,12 @@ use std::fmt;
 pub use rank1::*;
 pub use select1::*;
 
+#[allow(unused_imports)]
 use rand::rngs::StdRng;
+#[allow(unused_imports)]
 use rand::{Rng, SeedableRng};
 
+#[allow(dead_code)]
 const TEST_RANGE_THOROUGH: usize = 500000;
 
 #[derive(MallocSizeOf, Clone)]
@@ -87,7 +90,7 @@ impl Bitvector {
 
     pub fn select0(&self, i: u64) -> Result<u64, MyError> {
         println!("Select0: {}", i);
-        self.select0.selectWithBoundaryCheck(&self.data[..], i)
+        self.select0.select_with_boundary_check(&self.data[..], i)
     }
 
     pub fn select0_simple(&self, i: u64) -> Result<u64, MyError> {
@@ -100,7 +103,7 @@ impl Bitvector {
 
     pub fn select1(&self, i: u64) -> Result<u64, MyError> {
         println!("Select1: {}", i);
-        self.select1.selectWithBoundaryCheck(&self.data[..], i)
+        self.select1.select_with_boundary_check(&self.data[..], i)
     }
 
     pub fn select1_simple(&self, i: u64) -> Result<u64, MyError> {
@@ -204,6 +207,7 @@ mod tests {
     }
 }
 
+#[allow(dead_code)]
 fn testing_select0_variants<F>(name: &'static str, select0: F)
 where
     F: Fn(u64) -> Result<u64, MyError>,

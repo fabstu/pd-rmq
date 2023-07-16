@@ -312,7 +312,7 @@ impl Select1 {
         }
     }
 
-    pub fn selectWithBoundaryCheck(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+    pub fn select_with_boundary_check(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
         // Except: i == 1 just means that I want a single 1,
         // which can with len == 1 mean to return 0, or 1.
         // self.

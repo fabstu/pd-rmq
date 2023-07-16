@@ -81,7 +81,7 @@ impl Bitvector {
 
     pub fn select0(&self, i: u64) -> Result<u64, MyError> {
         println!("Select0: {}", i);
-        self.select0.select(&self.data[..], i)
+        self.select0.selectWithBoundaryCheck(&self.data[..], i)
     }
 
     pub fn select0_simple(&self, i: u64) -> Result<u64, MyError> {
@@ -94,7 +94,7 @@ impl Bitvector {
 
     pub fn select1(&self, i: u64) -> Result<u64, MyError> {
         println!("Select1: {}", i);
-        self.select1.select(&self.data[..], i)
+        self.select1.selectWithBoundaryCheck(&self.data[..], i)
     }
 
     pub fn select1_simple(&self, i: u64) -> Result<u64, MyError> {

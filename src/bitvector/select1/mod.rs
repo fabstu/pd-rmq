@@ -313,18 +313,35 @@ impl Select1 {
         }
     }
 
+    pub fn selectWithBoundaryCheck(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+        // Except: i == 1 just means that I want a single 1,
+        // which can with len == 1 mean to return 0, or 1.
+        // self.
+        // Problem: For a sub-select, it is not necessarily an out-of-bounds
+        // for i to be == data.len because prior superblocks already consume
+        // more non-matching size.
+        //
+        // a) Only do this check once on the main level. Recursive calls
+        //    call the down-specced check-version.
+        // b) Return 0 on the sub-level here if i >= self.k.
+        //    This works because self.k only == data.len() if all match.
+        if i >= data.len() as u64 {
+            println!(
+                "{} Accesing i={} in data of len={} data: {:#?}",
+                space(self.is1, self.is_subblock),
+                i,
+                data.len(),
+                data
+            );
+            return Err(MyError::Select1OutOfBounds);
+        }
+
+        return self.select(data, i);
+    }
+
     pub fn select(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
         if i == 0 {
             return Ok(0);
-        }
-        if i >= data.len() as u64 {
-            println!(
-                "{} Accesing i={} in data of len={}",
-                space(self.is1, self.is_subblock),
-                i,
-                data.len()
-            );
-            return Err(MyError::Select1OutOfBounds);
         }
 
         if i > self.k as u64 {

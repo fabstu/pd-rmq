@@ -50,3 +50,16 @@ Question anyway:
   - Might have to copy.
 - c) Special-case 
 
+
+## Problem n=1 produces:
+
+Select1: 9
+1 superblock_number=2 b=4 i=9 i-inside=1
+1 Subblock select super_number=2 b=4 i=9 i-inside=1
+1     Accesing i=1 in data of len=1
+thread 'bitvector::testing_select1_thorough' panicked at 'assertion failed: `(left == right)`
+  left: `Ok(19)`,
+ right: `Err(Select1OutOfBounds)`', src/bitvector/mod.rs:253:9
+
+Observations:
+- it wants to access 

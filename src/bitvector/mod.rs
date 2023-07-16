@@ -10,7 +10,7 @@ pub use select1::*;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
-const TEST_RANGE_THOROUGH: usize = 5000;
+const TEST_RANGE_THOROUGH: usize = 500000;
 
 #[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {

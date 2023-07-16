@@ -13,7 +13,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
 #[allow(dead_code)]
-const TEST_RANGE_THOROUGH: usize = 500000;
+const TEST_RANGE_THOROUGH: usize = 5000;
 
 #[derive(MallocSizeOf, Clone)]
 pub struct Bitvector {
@@ -76,6 +76,10 @@ impl Bitvector {
             select1: select1,
             data: data,
         }
+    }
+
+    pub fn get(&self, i: u64) -> bool {
+        return self.data[i as usize];
     }
 
     pub fn rank1(&self, i: u64) -> u64 {

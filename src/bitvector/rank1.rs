@@ -35,9 +35,11 @@ impl Rank1 {
         let superblock_count = (n / superblock_size as f64).floor() as u64;
         let block_count = (n / block_size as f64).floor() as u64;
 
+        let block_count_per_superblock = block_count / superblock_count + 1;
+
         println!(
-            "rank1::new - block_size: {} superblock_size: {} block_count: {} superblock_count: {}",
-            block_size, superblock_size, block_count, superblock_count
+            "rank1::new - block_size: {} superblock_size: {} block_count: {} superblock_count: {} block_count_per_superblock: {}",
+            block_size, superblock_size, block_count, superblock_count, block_count_per_superblock
         );
 
         println!("rank1: Allocating superblock_1s");
@@ -51,9 +53,15 @@ impl Rank1 {
 
         println!("rank1: Allocating block_1s");
 
+        // Takes too much space.
+        // Problem: block_count is the number of ALL blocks.
+        // But I only need the blocks for each superblock.
+
         // block_1s[superblock][block] -> #1s in block.
-        let mut block_1s =
-            vec![vec![0u64; (block_count + 1) as usize]; (superblock_count + 1) as usize];
+        let mut block_1s = vec![
+            vec![0u64; (block_count_per_superblock + 1) as usize];
+            (superblock_count + 1) as usize
+        ];
 
         println!("rank1: Initializing...");
 

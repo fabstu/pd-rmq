@@ -1,15 +1,13 @@
 use std::collections::HashSet;
 
 use std::ops::Index;
-use std::ops::IndexMut;
-use std::ops::Range;
-use std::ops::RangeBounds;
 
 #[derive(MallocSizeOf, Clone)]
 pub struct SparseBitVec {
     set: HashSet<usize>,
 }
 
+#[allow(dead_code)]
 impl SparseBitVec {
     // Creates a new SparseBitVec
     pub fn new() -> SparseBitVec {

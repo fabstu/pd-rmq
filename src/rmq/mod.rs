@@ -2,9 +2,6 @@ mod naive_fast;
 mod naive_slow;
 mod rmq_sparse;
 
-use naive_fast::RMQNaiveFast;
-use naive_slow::RMQNaiveSlow;
-
 use std::error::Error;
 use std::fmt;
 
@@ -21,6 +18,7 @@ use super::report;
 use crate::malloc_size_of::MallocSizeOf;
 use crate::malloc_size_of::MallocSizeOfOps;
 
+#[allow(unused_imports)]
 use super::debug::DEBUG;
 
 #[derive(Debug, PartialEq)]
@@ -58,7 +56,7 @@ pub fn benchmark_and_check<T: RMQ + MallocSizeOf>(path: &Path, want: Option<Vec<
 
     // Check correctness.
     if let Some(want) = want {
-        let mut numbers = instance.numbers.clone();
+        let numbers = instance.numbers.clone();
         let rmq = T::new(numbers);
 
         for (i, query) in instance.queries.clone().iter().enumerate() {
@@ -68,8 +66,6 @@ pub fn benchmark_and_check<T: RMQ + MallocSizeOf>(path: &Path, want: Option<Vec<
                 .unwrap();
             assert_eq!(want[i], got, "Query nr {}: {:?}", i, query);
         }
-
-        // assert_eq!(want, got);
     }
 
     // Start benchmark
@@ -78,7 +74,7 @@ pub fn benchmark_and_check<T: RMQ + MallocSizeOf>(path: &Path, want: Option<Vec<
 
 fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
     // Clone numbers because we sort them.
-    let mut numbers = instance.numbers.clone();
+    let numbers = instance.numbers;
 
     let start = Instant::now();
 
@@ -112,10 +108,10 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
 // }
 
 #[test]
-fn testing_rmq_naivefast_benchmark1() {
+fn testing_rmq_naiveslow_benchmark1() {
     let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
-    benchmark_and_check::<RMQNaiveSlow>(path, None);
+    benchmark_and_check::<naive_slow::RMQNaiveSlow>(path, None);
 }
 
 #[test]

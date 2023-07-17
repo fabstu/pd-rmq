@@ -8,8 +8,6 @@ use std::fmt;
 use super::debug::DEBUG;
 pub use rank1::*;
 pub use select1::*;
-use sparse_bit_vector::SparseBitVec;
-use sparse_bit_vector::*;
 
 #[allow(unused_imports)]
 use rand::rngs::StdRng;

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 mod select1_naive;
 mod select_lookup_table;
 
@@ -262,11 +260,6 @@ impl Select1Internal {
                 superblock_end_index.len()
             );
         }
-
-        // As in the slides.
-        let maximum_block_size_in_bits: u64 = (n as f64).log2().ceil() as u64;
-
-        let mut select_lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>> = HashMap::new();
 
         Self {
             is1: is1,

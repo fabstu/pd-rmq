@@ -3,7 +3,6 @@ use super::heapsize;
 use super::instances;
 use super::report;
 
-use std::cmp::max;
 use std::path::Path;
 use std::time::Instant;
 

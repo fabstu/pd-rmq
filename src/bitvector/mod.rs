@@ -1,11 +1,13 @@
 mod rank1;
 mod select1;
+mod sparse_bit_vector;
 
 use std::error::Error;
 use std::fmt;
 
 pub use rank1::*;
 pub use select1::*;
+use sparse_bit_vector::*;
 
 #[allow(unused_imports)]
 use rand::rngs::StdRng;
@@ -66,16 +68,22 @@ impl Bitvector {
         let select1 = Select1::new(&data, true, false);
         let select0 = Select1::new(&data, false, false);
 
+        println!("Finished setting up select0 and select1.");
+
         //println!("Select1-overall: {:?}", select1);
         //println!("Select1-overall: {:#?}", select1);
         //println!("Select0-overall: {:#?}", select0);
 
-        Self {
+        let s = Self {
             rank: Rank1::new(&data),
             select0: select0,
             select1: select1,
-            data: data,
-        }
+            data: SparseBitVec::from_vec(data),
+        };
+
+        println!("Finished setting up bitvector.");
+
+        return s;
     }
 
     pub fn get(&self, i: u64) -> bool {

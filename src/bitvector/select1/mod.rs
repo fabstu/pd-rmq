@@ -199,10 +199,10 @@ impl Select1 {
         }
 
         println!(
-            "{} Added superblock_end_indexes b: {} superblock_end_indexes: {:?} ",
+            "{} Added superblock_end_indexes b: {} superblock_end_indexes.len(): {} ",
             space(is1, is_subblock),
             b,
-            superblock_end_index
+            superblock_end_index.len()
         );
 
         // As in the slides.
@@ -529,12 +529,12 @@ impl Select1 {
             if size as f64 >= (n as f64).log2().powf(4.0) {
                 // Naive.
                 println!(
-                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} {:?}",
+                    "{} block=naive: superblock_start: {} superblock_end: {} size: {} data.len(): {:}",
                     space(is1, is_subblock),
                     superblock_start,
                     superblock_end,
                     size,
-                    &data[superblock_start..=superblock_end]
+                    &data[superblock_start..=superblock_end].len()
                 );
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(
@@ -570,13 +570,13 @@ impl Select1 {
             if size as f64 >= (n as f64).log2() {
                 // Naive
                 println!(
-                    "{} block=naive: superblock_start: {} superblock_end: {}  size: {} data: {:?}",
+                    "{} block=naive: superblock_start: {} superblock_end: {}  size: {} data.len(): {:}",
                     space(is1, is_subblock),
                     superblock_start,
                     superblock_end,
                     //&data[superblock_start..=superblock_end],
                     size,
-                    &data[superblock_start..=superblock_end],
+                    &data[superblock_start..=superblock_end].len(),
                 );
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(

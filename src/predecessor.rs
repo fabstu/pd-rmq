@@ -28,15 +28,20 @@ impl PD {
 
     #[allow(unused_variables)]
     fn split_with_bit_distribution(i: u64, lower_bits: u64, upper_bits: u64) -> (u64, usize) {
-        // Remove lower bits for upper bits.
-        let upper: usize = (i >> lower_bits) as usize;
+        let pi_divisor = 2u64.pow(upper_bits as u32);
 
-        // Shift lowerBits times left to get 1 000 0000 000...
-        // then -1 to make all lowerBits 1 while removing the leading one
-        // that was too much.
-        let lower = i & ((1 << lower_bits) - 1);
+        let upper = i / pi_divisor;
+        let lower = i % pi_divisor;
 
-        return (lower, upper);
+        // // Remove lower bits for upper bits.
+        // let upper: usize = (i >> lower_bits) as usize;
+
+        // // Shift lowerBits times left to get 1 000 0000 000...
+        // // then -1 to make all lowerBits 1 while removing the leading one
+        // // that was too much.
+        // let lower = i & ((1 << lower_bits) - 1);
+
+        return (lower, upper as usize);
     }
 
     pub fn new(numbers: &mut Vec<u64>) -> Self {
@@ -58,7 +63,7 @@ impl PD {
         // Its only used for pi_divisor and for initial splitting into lower.
         // But since it was zero, ...?
         //
-        let u = numbers[numbers.len() - 1];
+        let u = numbers[numbers.len() - 1] as u64;
 
         // Number of numbers.
         let n = numbers.len();
@@ -75,19 +80,40 @@ impl PD {
         //
         // So... choosing both the same might work.
 
-        let lower_bits = n_float.log2().ceil() as i32;
+        let mut lower_bits = n_float.log2().ceil() as i32;
         // Is 44 for n=1.000.000 with upper=20!
         // Fixed ceil -> floor to not get 45.
         // let upper_bits = max(((u as f64).log2() - n_float.log2()).ceil() as i32, 2);
-        let upper_bits = n_float.log2().ceil() as i32;
 
-        let mut upper_vec: Vec<bool> = vec![false; 2 * n + 1];
+        // let mut upper_bits = (u as f64).log2().ceil() as i32;
+        let mut upper_bits = n_float.log2().ceil() as i32;
+
+        //question
+        // Why are upper and lower bits based on # of numbers instead of
+        // universe?
+
+        let mut upper_vec: Vec<bool> = vec![false; 2 * n * 10 + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
+
+        // Increase upper_bits when not enough space.
+        //
+        // Alternative: Use sparse bitvector.
+        while ((2 * n + 1) as u64) < (u / 2u64.pow(upper_bits as u32)) {
+            println!("Not enough space in upper_vec for upper_bits");
+
+            upper_bits = upper_bits + 10;
+            lower_bits = lower_bits + 10;
+        }
+
+        println!(
+            "upper_bits: {}, lower_bits: {}, u: {}, n: {}",
+            upper_bits, lower_bits, u, n
+        );
 
         // How do I handle upper_bits = 0?
         // a) Use 1 by default.
         // b) Sepcial-case insertion into upper (skipping it).
-        let pi_divisor = 2u32.pow(upper_bits as u32) as u64;
+        let pi_divisor = 1u64 << upper_bits;
 
         // Sort numbers.
 
@@ -110,12 +136,14 @@ impl PD {
             // let lower = number & ((1 << lowerBits) - 1);
 
             println!(
-                "Setting to true: number: {} i: {} pi: {} pi+i: {} pi_divisor: {}",
+                "Setting to true: number: {} i: {} pi: {} pi+i: {} pi_divisor: {}, upper_bits: {}, lower_bits: {}",
                 number,
                 i,
                 pi,
                 pi + i,
-                pi_divisor
+                pi_divisor,
+                upper_bits,
+                lower_bits
             );
 
             // Crash here due to pi + i going over upper_vec.
@@ -137,8 +165,12 @@ impl PD {
         }
 
         println!(
-            "PD::new - numbers: {:?} upper: {:?} lower: {:?} upper_bits: {} lower_bits: {}",
-            numbers, upper_vec, lower_vec, upper_bits, lower_bits
+            "PD::new - numbers: {} upper: {:?} lower: {:?} upper_bits: {} lower_bits: {}",
+            numbers.len(),
+            upper_vec.len(),
+            lower_vec.len(),
+            upper_bits,
+            lower_bits
         );
 
         return Self {

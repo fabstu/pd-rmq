@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
 mod select1_naive;
+mod select_lookup_table;
+
+use self::select_lookup_table::SelectLookupTable;
 
 use super::u64_to_vec_bool;
 use super::MyError;
@@ -8,6 +11,43 @@ pub use select1_naive::Select1Naive;
 
 #[derive(MallocSizeOf, Clone, Debug)]
 pub struct Select1 {
+    select: Select1Internal,
+    //lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>>,
+    //lookup_table_block_size: u32,
+    lookup_table: SelectLookupTable,
+}
+
+impl Select1 {
+    pub fn new(data: &[bool], is1: bool, is_subblock: bool) -> Self {
+        let mut lookup_table: SelectLookupTable = SelectLookupTable::new(is1);
+
+        let select = Select1Internal::new(data, is1, is_subblock, &mut lookup_table);
+
+        // Initializes the select lookup table.
+        lookup_table.create();
+
+        return Self {
+            select: select,
+            lookup_table: lookup_table,
+        };
+    }
+
+    pub fn select_with_boundary_check(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+        self.select
+            .select_with_boundary_check(data, &self.lookup_table, i)
+    }
+
+    pub fn select_naive(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+        self.select.select_naive(data, i)
+    }
+
+    pub fn select_simple(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+        self.select.select_simple(data, i)
+    }
+}
+
+#[derive(MallocSizeOf, Clone, Debug)]
+struct Select1Internal {
     // Whether it does select1 or select0.
     is1: bool,
 
@@ -41,9 +81,6 @@ pub struct Select1 {
 
     in_superblock: Vec<InSuperblockSelect>,
 
-    lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>>,
-    lookup_table_block_size: u32,
-
     is_subblock: bool,
 }
 
@@ -65,15 +102,26 @@ pub struct Select1 {
 //
 #[derive(MallocSizeOf, Clone, Debug)]
 enum InSuperblockSelect {
-    Naive(Select1Naive), // Allowed on 1st and 2nd level.
-    Subblock(Select1),   // Allowed on 1st level
-    LookupTable,         // Allowed on 2nd level.
+    Naive(Select1Naive),       // Allowed on 1st and 2nd level.
+    Subblock(Select1Internal), // Allowed on 1st level
+    LookupTable,               // Allowed on 2nd level.
 }
 
-impl Select1 {
+impl Select1Internal {
     //pub fn new(data: &[bool], is1: bool, is_subblock: bool) -> Self {
 
-    pub fn new(data: &[bool], is1: bool, is_subblock: bool) -> Self {
+    fn new(
+        data: &[bool],
+        is1: bool,
+        is_subblock: bool,
+        lookup_table: &mut SelectLookupTable,
+    ) -> Self {
+        // Can differentiate between main and subblock by passing
+        // LookupTable.
+        //
+        // Or.. just pass it always in and create for outside ::new to use
+        // which creates the lookup_table and passes it in everywhere.
+
         let n = data.len();
         // Sum of all zeroes/ones.
         let k = data.iter().filter(|v| **v == is1).count() as u32;
@@ -153,6 +201,7 @@ impl Select1 {
                     superblock_start,
                     superblock_end,
                     is_subblock,
+                    lookup_table,
                 ));
 
                 // Next superblock starts at next index.
@@ -195,6 +244,7 @@ impl Select1 {
                 // -1 because the end is included.
                 data.len() - 1,
                 is_subblock,
+                lookup_table,
             ));
         }
 
@@ -210,96 +260,12 @@ impl Select1 {
 
         let mut select_lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>> = HashMap::new();
 
-        // All possible values for block_size.
-        //
-        // This might be too much.. .
-        for i in 0..2u64.pow((maximum_block_size_in_bits) as u32) {
-            // Get block bitvector pattern.
-            //
-            // What is the bit-size of the blocks?
-            // One case I had was where the input-blockrange was 2bit
-            // but the lookup_table blocksize was 3bit, making the app crash.
-            //
-            // So.. -1 for now.
-            let block = u64_to_vec_bool(i, maximum_block_size_in_bits);
-            let mut block_lookups: HashMap<u64, u64> = HashMap::new();
-
-            let number_of_ones_zeroes = block.iter().filter(|v| **v == is1).count() as u64;
-
-            // Go up to numberOfOnesOrZeroes + 1 because we want to include
-            // the last found match as well. We start at 1 after all and
-            // with ..X, X is excluded.
-            for lookup in 0..number_of_ones_zeroes + 1 {
-                // How do I get #1s in i up to lookup without calcing rank1 for
-                // each lookup manually?
-                //
-                // a) flip each bit (block_bitsize is bit-count) manually, and
-                //    update #1s on each flip.
-
-                let mut select1: u64 = 0;
-
-                if lookup == 0 {
-                    select1 = 0;
-                } else {
-                    // Calculate select1 for this block and lookup.
-                    //
-                    // a) flip each bit manually, and adapt #1s on each flip.
-                    // b) Slow: Iterate over block and up to found
-                    //    lookup #1s/#0s.
-                    //
-                    //    Except.. size < log^4 n is super small, so might be
-                    //    insignificant anyway.
-                    let mut count = 0;
-                    let mut found = false;
-
-                    for index in 0..block.len() {
-                        if block[index] != is1 {
-                            continue;
-                        }
-
-                        count += 1;
-
-                        if count == lookup {
-                            select1 = index as u64;
-                            found = true;
-                            break;
-                        }
-                    }
-
-                    if !found {
-                        panic!(
-                            "Could not find select1 for block: {:#?} lookup: {}",
-                            block, lookup
-                        );
-                    }
-                }
-
-                /*
-                println!(
-                    "ins select1_lookup - max block size: {} i: {} block: {:#?} lookup: {} rank1: {}",
-                    maximum_block_size_in_bits, i, block, lookup, select1,
-                );
-                */
-
-                block_lookups.insert(lookup, select1);
-            }
-
-            select_lookup_table.insert(block, block_lookups);
-        }
-
-        // How do I know the maximum #bits I need for the lookup table?
-        // a) b: #bits per superblock.
-        // b) size < log^4 n: Only using lookup table in this case.
-        // c) Observe the maximum block size from previous iteration.
-
         Self {
             is1: is1,
             k: k,
             b: b,
             in_superblock: in_superblock,
             superblock_end_index: superblock_end_index,
-            lookup_table: select_lookup_table,
-            lookup_table_block_size: maximum_block_size_in_bits as u32,
             is_subblock: is_subblock,
         }
     }
@@ -312,7 +278,12 @@ impl Select1 {
         }
     }
 
-    pub fn select_with_boundary_check(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+    pub fn select_with_boundary_check(
+        &self,
+        data: &[bool],
+        lookup_table: &SelectLookupTable,
+        i: u64,
+    ) -> Result<u64, MyError> {
         // Except: i == 1 just means that I want a single 1,
         // which can with len == 1 mean to return 0, or 1.
         // self.
@@ -335,10 +306,15 @@ impl Select1 {
             return Err(MyError::Select1OutOfBounds);
         }
 
-        return self.select(data, i);
+        return self.select(data, lookup_table, i);
     }
 
-    pub fn select(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
+    pub fn select(
+        &self,
+        data: &[bool],
+        lookup_table: &SelectLookupTable,
+        i: u64,
+    ) -> Result<u64, MyError> {
         if i == 0 {
             return Ok(0);
         }
@@ -470,6 +446,7 @@ impl Select1 {
 
                 in_block_offset = subblock.select(
                     &data[this_superblock_start_index as usize..=this_superblock_end_index],
+                    lookup_table,
                     i_excluding_previous_superblocks,
                 )?;
 
@@ -490,7 +467,7 @@ impl Select1 {
                     this_superblock_start_index,
                     this_superblock_end_index
                 );
-                in_block_offset = self.lookup_table_select(
+                in_block_offset = lookup_table.lookup(
                     &data[this_superblock_start_index as usize..=this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 );
@@ -508,6 +485,7 @@ impl Select1 {
         superblock_start: usize,
         superblock_end: usize,
         is_subblock: bool,
+        lookup_table: &mut SelectLookupTable,
     ) -> InSuperblockSelect {
         // + 1 here because end is included and otherwise not counted.
         let size = superblock_end + 1 - superblock_start;
@@ -559,10 +537,11 @@ impl Select1 {
                     space(is1, is_subblock), superblock_start, superblock_end, n, (n as f32).log2().floor(), size, &data[superblock_start..=superblock_end]
                 );
 
-                result = InSuperblockSelect::Subblock(Select1::new(
+                result = InSuperblockSelect::Subblock(Select1Internal::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                     true,
+                    lookup_table,
                 ));
             }
         } else {
@@ -593,35 +572,37 @@ impl Select1 {
                     &data[superblock_start..=superblock_end]
                 );
                 result = InSuperblockSelect::LookupTable;
+
+                lookup_table.encountered((superblock_end - superblock_start + 1) as u32)
             }
         }
 
         return result;
     }
 
-    fn lookup_table_select(&self, data: &[bool], i: u64) -> u64 {
-        // Problem: block with 2 bits is passed in but
-        // lookup_table only contains 3-bit blocks to look up.
-        println!(
-            "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
-            data, i, self.lookup_table
-        );
+    // fn lookup_table_select(&self, data: &[bool], i: u64) -> u64 {
+    //     // Problem: block with 2 bits is passed in but
+    //     // lookup_table only contains 3-bit blocks to look up.
+    //     println!(
+    //         "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
+    //         data, i, self.lookup_table
+    //     );
 
-        // Extend lookup-block if necessary.
+    //     // Extend lookup-block if necessary.
 
-        if data.len() == self.lookup_table_block_size as usize {
-            return self.lookup_table[data][&i];
-        } else {
-            let block_size: usize = self.lookup_table_block_size as usize;
-            let mut filled_block: Vec<bool> = Vec::with_capacity(block_size);
-            filled_block.extend_from_slice(data);
-            while filled_block.len() < block_size {
-                filled_block.push(false);
-            }
+    //     if data.len() == self.lookup_table_block_size as usize {
+    //         return self.lookup_table[data][&i];
+    //     } else {
+    //         let block_size: usize = self.lookup_table_block_size as usize;
+    //         let mut filled_block: Vec<bool> = Vec::with_capacity(block_size);
+    //         filled_block.extend_from_slice(data);
+    //         while filled_block.len() < block_size {
+    //             filled_block.push(false);
+    //         }
 
-            return self.lookup_table[&filled_block][&i];
-        }
-    }
+    //         return self.lookup_table[&filled_block][&i];
+    //     }
+    // }
 
     pub fn select_simple(&self, data: &[bool], i: u64) -> Result<u64, MyError> {
         if i == 0 {

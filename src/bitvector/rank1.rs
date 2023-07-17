@@ -36,9 +36,11 @@ impl Rank1 {
         let block_count = (n / block_size as f64).floor() as u64;
 
         println!(
-            "rank1::new - block_size: {} superblock_size: {}",
-            block_size, superblock_size
+            "rank1::new - block_size: {} superblock_size: {} block_count: {} superblock_count: {}",
+            block_size, superblock_size, block_count, superblock_count
         );
+
+        println!("rank1: Allocating superblock_1s");
 
         //
         // Initialize block and superblock arrays.
@@ -47,9 +49,13 @@ impl Rank1 {
         //
         let mut superblock_1s = vec![0u64; (superblock_count + 1) as usize];
 
+        println!("rank1: Allocating block_1s");
+
         // block_1s[superblock][block] -> #1s in block.
         let mut block_1s =
             vec![vec![0u64; (block_count + 1) as usize]; (superblock_count + 1) as usize];
+
+        println!("rank1: Initializing...");
 
         //
         // Calc 1s up to each superblock.

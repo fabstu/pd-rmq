@@ -441,8 +441,14 @@ fn benchmark(instance: PDInstance) {
 
     let pd = PD::new(&mut numbers);
 
-    for query in instance.queries {
-        _ = pd.pred(query);
+    let queries_count = instance.queries.len();
+
+    for (i, query) in instance.queries.iter().enumerate() {
+        _ = pd.pred(*query);
+
+        if i % 100 == 0 {
+            println!("Query nr {}/{}", i, queries_count);
+        }
     }
 
     let duration = start.elapsed();

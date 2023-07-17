@@ -5,6 +5,7 @@ mod sparse_bit_vector;
 use std::error::Error;
 use std::fmt;
 
+use super::debug::DEBUG;
 pub use rank1::*;
 pub use select1::*;
 use sparse_bit_vector::SparseBitVec;
@@ -69,7 +70,9 @@ impl Bitvector {
         let select1 = Select1::new(&data, true, false);
         let select0 = Select1::new(&data, false, false);
 
-        println!("Finished setting up select0 and select1.");
+        if DEBUG {
+            println!("Finished setting up select0 and select1.");
+        }
 
         //println!("Select1-overall: {:?}", select1);
         //println!("Select1-overall: {:#?}", select1);
@@ -83,7 +86,9 @@ impl Bitvector {
             //data: SparseBitVec::from_vec(data),
         };
 
-        println!("Finished setting up bitvector.");
+        if DEBUG {
+            println!("Finished setting up bitvector.");
+        }
 
         return s;
     }
@@ -103,7 +108,9 @@ impl Bitvector {
     }
 
     pub fn select0(&self, i: u64) -> Result<u64, MyError> {
-        println!("Select0: {}", i);
+        if DEBUG {
+            println!("Select0: {}", i);
+        }
         self.select0.select_with_boundary_check(&self.data[..], i)
     }
 
@@ -116,7 +123,9 @@ impl Bitvector {
     }
 
     pub fn select1(&self, i: u64) -> Result<u64, MyError> {
-        println!("Select1: {}", i);
+        if DEBUG {
+            println!("Select1: {}", i);
+        }
         self.select1.select_with_boundary_check(&self.data[..], i)
     }
 

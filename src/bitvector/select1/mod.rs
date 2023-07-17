@@ -9,6 +9,8 @@ use super::u64_to_vec_bool;
 use super::MyError;
 pub use select1_naive::Select1Naive;
 
+use super::super::debug::DEBUG;
+
 #[derive(MallocSizeOf, Clone, Debug)]
 pub struct Select1 {
     select: Select1Internal,
@@ -144,7 +146,9 @@ impl Select1Internal {
             }
         }
 
-        println!("{} n={}, k={}, b={}", space(is1, is_subblock), n, k, b);
+        if DEBUG {
+            println!("{} n={}, k={}, b={}", space(is1, is_subblock), n, k, b);
+        }
 
         // Number of superblocks because we have k zeroes/ones
         // which are split of into blocks of b, leaving the resulting #blocks.
@@ -214,7 +218,9 @@ impl Select1Internal {
         // }
 
         if superblock_end < data.len() - 1 {
-            println!("{} Last: ", space(is1, is_subblock));
+            if DEBUG {
+                println!("{} Last: ", space(is1, is_subblock));
+            }
 
             // Problem: In my case the third is skipped.
 
@@ -248,12 +254,14 @@ impl Select1Internal {
             ));
         }
 
-        println!(
-            "{} Added superblock_end_indexes b: {} superblock_end_indexes.len(): {} ",
-            space(is1, is_subblock),
-            b,
-            superblock_end_index.len()
-        );
+        if DEBUG {
+            println!(
+                "{} Added superblock_end_indexes b: {} superblock_end_indexes.len(): {} ",
+                space(is1, is_subblock),
+                b,
+                superblock_end_index.len()
+            );
+        }
 
         // As in the slides.
         let maximum_block_size_in_bits: u64 = (n as f64).log2().ceil() as u64;
@@ -339,13 +347,15 @@ impl Select1Internal {
         // But restricting it to < ensures the problems is immediately obivous
         // while ensuring I can access the current blocks' end.
         if superblock_number > self.superblock_end_index.len() as u64 {
-            println!(
-                "i: {} b: {} superblock_number: {} superblock_end_index.len(): {}",
-                i,
-                self.b,
-                superblock_number,
-                self.superblock_end_index.len()
-            );
+            if DEBUG {
+                println!(
+                    "i: {} b: {} superblock_number: {} superblock_end_index.len(): {}",
+                    i,
+                    self.b,
+                    superblock_number,
+                    self.superblock_end_index.len()
+                );
+            }
             return Err(MyError::Select1SuperblockIndexOutOfBounds);
         }
 
@@ -411,38 +421,46 @@ impl Select1Internal {
             i_excluding_previous_superblocks = i - (superblock_number * self.b as u64);
         }
 
-        println!(
-            "{} superblock_number={} b={} i={} i-inside={}",
-            space(self.is1, self.is_subblock),
-            superblock_number,
-            self.b,
-            i,
-            i_excluding_previous_superblocks
-        );
+        if DEBUG {
+            println!(
+                "{} superblock_number={} b={} i={} i-inside={}",
+                space(self.is1, self.is_subblock),
+                superblock_number,
+                self.b,
+                i,
+                i_excluding_previous_superblocks
+            );
+        }
 
         match self.in_superblock[superblock_number as usize] {
             InSuperblockSelect::Naive(ref naive) => {
                 // What do I pass as i here? 0 == beginning of block.
                 // But if it returns 0,
-                println!(
-                    "Naive select super_number={} b={} i={} i-inside={}",
-                    superblock_number, self.b, i, i_excluding_previous_superblocks
-                );
+                if DEBUG {
+                    println!(
+                        "Naive select super_number={} b={} i={} i-inside={}",
+                        superblock_number, self.b, i, i_excluding_previous_superblocks
+                    );
+                }
 
                 in_block_offset = naive.select(i_excluding_previous_superblocks)?;
 
-                println!("returned");
+                if DEBUG {
+                    println!("returned");
+                }
             }
             InSuperblockSelect::Subblock(ref subblock) => {
                 // What data to pass here?
-                println!(
-                    "{} Subblock select super_number={} b={} i={} i-inside={}",
-                    space(self.is1, self.is_subblock),
-                    superblock_number,
-                    self.b,
-                    i,
-                    i_excluding_previous_superblocks
-                );
+                if DEBUG {
+                    println!(
+                        "{} Subblock select super_number={} b={} i={} i-inside={}",
+                        space(self.is1, self.is_subblock),
+                        superblock_number,
+                        self.b,
+                        i,
+                        i_excluding_previous_superblocks
+                    );
+                }
 
                 in_block_offset = subblock.select(
                     &data[this_superblock_start_index as usize..=this_superblock_end_index],
@@ -450,14 +468,17 @@ impl Select1Internal {
                     i_excluding_previous_superblocks,
                 )?;
 
-                println!("returned");
+                if DEBUG {
+                    println!("returned");
+                }
             }
             InSuperblockSelect::LookupTable => {
                 // What data to pass here?
                 // Need block beginning to end.
                 // And if its the last block, beginning of block to end of
                 // global data.
-                println!(
+                if DEBUG {
+                    println!(
                     "{} Lookup table select super_number={} b={} i={} i-inside={} from {} to {}",
                     space(self.is1, self.is_subblock),
                     superblock_number,
@@ -467,11 +488,14 @@ impl Select1Internal {
                     this_superblock_start_index,
                     this_superblock_end_index
                 );
+                }
                 in_block_offset = lookup_table.lookup(
                     &data[this_superblock_start_index as usize..=this_superblock_end_index],
                     i_excluding_previous_superblocks,
                 );
-                println!("returned");
+                if DEBUG {
+                    println!("returned");
+                }
             }
         }
 
@@ -506,7 +530,8 @@ impl Select1Internal {
 
             if size as f64 >= (n as f64).log2().powf(4.0) {
                 // Naive.
-                println!(
+                if DEBUG {
+                    println!(
                     "{} block=naive: superblock_start: {} superblock_end: {} size: {} data.len(): {:}",
                     space(is1, is_subblock),
                     superblock_start,
@@ -514,6 +539,7 @@ impl Select1Internal {
                     size,
                     &data[superblock_start..=superblock_end].len()
                 );
+                }
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
@@ -532,10 +558,12 @@ impl Select1Internal {
                 // Ah not that is wrong as well. Its the last main superblock.
 
                 // Subblock.
-                println!(
+                if DEBUG {
+                    println!(
                     "{} block=subblock: superblock_start: {} superblock_end: {} n: {} b: {} size: {} data: {:?}",
                     space(is1, is_subblock), superblock_start, superblock_end, n, (n as f32).log2().floor(), size, &data[superblock_start..=superblock_end]
                 );
+                }
 
                 result = InSuperblockSelect::Subblock(Select1Internal::new(
                     &data[superblock_start..=superblock_end],
@@ -548,7 +576,8 @@ impl Select1Internal {
             // Naive or lookup table.
             if size as f64 >= (n as f64).log2() {
                 // Naive
-                println!(
+                if DEBUG {
+                    println!(
                     "{} block=naive: superblock_start: {} superblock_end: {}  size: {} data.len(): {:}",
                     space(is1, is_subblock),
                     superblock_start,
@@ -557,13 +586,15 @@ impl Select1Internal {
                     size,
                     &data[superblock_start..=superblock_end].len(),
                 );
+                }
 
                 result = InSuperblockSelect::Naive(Select1Naive::new(
                     &data[superblock_start..=superblock_end],
                     is1,
                 ));
             } else {
-                println!(
+                if DEBUG {
+                    println!(
                     "{} block=lookup_table: superblock_start: {} superblock_end: {} size: {} data: {:?}",
                     space(is1, is_subblock),
                     superblock_start,
@@ -571,6 +602,7 @@ impl Select1Internal {
                     size,
                     &data[superblock_start..=superblock_end]
                 );
+                }
                 result = InSuperblockSelect::LookupTable;
 
                 lookup_table.encountered((superblock_end - superblock_start + 1) as u32)

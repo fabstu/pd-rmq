@@ -12,6 +12,8 @@ use crate::instances::PDInstance;
 use crate::malloc_size_of::MallocSizeOf;
 use crate::malloc_size_of::MallocSizeOfOps;
 
+use super::debug::DEBUG;
+
 #[derive(MallocSizeOf)]
 struct PD {
     numbers_count: u64,
@@ -99,16 +101,20 @@ impl PD {
         //
         // Alternative: Use sparse bitvector.
         while ((2 * n + 1) as u64) < (u / 2u64.pow(upper_bits as u32)) {
-            println!("Not enough space in upper_vec for upper_bits");
+            if DEBUG {
+                println!("Not enough space in upper_vec for upper_bits");
+            }
 
             upper_bits = upper_bits + 10;
             lower_bits = lower_bits + 10;
         }
 
-        println!(
-            "upper_bits: {}, lower_bits: {}, u: {}, n: {}",
-            upper_bits, lower_bits, u, n
-        );
+        if DEBUG {
+            println!(
+                "upper_bits: {}, lower_bits: {}, u: {}, n: {}",
+                upper_bits, lower_bits, u, n
+            );
+        }
 
         // How do I handle upper_bits = 0?
         // a) Use 1 by default.
@@ -134,8 +140,8 @@ impl PD {
             // // then -1 to make all lowerBits 1 while removing the leading one
             // // that was too much.
             // let lower = number & ((1 << lowerBits) - 1);
-
-            println!(
+            if DEBUG {
+                println!(
                 "Setting to true: number: {} i: {} pi: {} pi+i: {} pi_divisor: {}, upper_bits: {}, lower_bits: {}",
                 number,
                 i,
@@ -145,6 +151,7 @@ impl PD {
                 upper_bits,
                 lower_bits
             );
+            }
 
             // Crash here due to pi + i going over upper_vec.
             // 38 mio vs 2 mio.
@@ -187,12 +194,14 @@ impl PD {
     // -> einzelne bits lesen.
     #[allow(dead_code)]
     pub fn access(&self, i: u64) -> Result<u64, MyError> {
-        println!(
-            "access({}) - upper_select1({}): {}",
-            i,
-            i,
-            self.upper.select1(i)?
-        );
+        if DEBUG {
+            println!(
+                "access({}) - upper_select1({}): {}",
+                i,
+                i,
+                self.upper.select1(i)?
+            );
+        }
 
         assert!(i < self.numbers_count, "i must be smaller than n");
 
@@ -259,10 +268,12 @@ impl PD {
             lower_part = lower_part | (if bit { 1 } else { 0 } << j);
         }
 
-        println!(
-            "access({}) - upper_part: {} lower_part: {}",
-            i, upper_part, lower_part
-        );
+        if DEBUG {
+            println!(
+                "access({}) - upper_part: {} lower_part: {}",
+                i, upper_part, lower_part
+            );
+        }
 
         return Ok((upper_part << (self.upper_bits) | lower_part) as u64);
     }
@@ -324,7 +335,9 @@ impl PD {
         // If ith is the last in the original numbers, then bucket is empty
         // anyway. Except.. if i-th is much earlier, then.. .
         if ith_in_original_numbers == self.numbers_count - 1 {
-            println!("pred exit: last number - p: {} msb: {}", p, msb);
+            if DEBUG {
+                println!("pred exit: last number - p: {} msb: {}", p, msb);
+            }
             return self.access(ith_in_original_numbers);
         }
 
@@ -337,7 +350,9 @@ impl PD {
         // But.. do I really check that that way?
         // TODO:
         if self.upper.get(p + 1) == false {
-            println!("pred exit: bucket empty");
+            if DEBUG {
+                println!("pred exit: bucket empty");
+            }
             // We are in a higher bucket, so the bucket was empty, so we need to
             // take the last from a smaller bucket and return that.
             //
@@ -365,10 +380,12 @@ impl PD {
         // previous bucket before next_bucket_p.
         let last_in_bucket_ith = self.upper.rank1(next_bucket_p) - 1;
 
-        println!(
-            "pred({}) - msb: {} p: {} ith: {} numbers_count: {} last_in_bucket_ith: {}",
-            i, msb, p, ith_in_original_numbers, self.numbers_count, last_in_bucket_ith
-        );
+        if DEBUG {
+            println!(
+                "pred({}) - msb: {} p: {} ith: {} numbers_count: {} last_in_bucket_ith: {}",
+                i, msb, p, ith_in_original_numbers, self.numbers_count, last_in_bucket_ith
+            );
+        }
 
         // This bucket is non-empty.
         //
@@ -401,26 +418,34 @@ impl PD {
             let bits: &[bool] = &self.lower[start..end];
             let bits_number = Self::bits_to_u64(bits);
 
-            println!(
-                "i: {} start: {} end: {} bits: {:?} bits_number: {} lowr: {}",
-                i, start, end, bits, bits_number, lower
-            );
+            if DEBUG {
+                println!(
+                    "i: {} start: {} end: {} bits: {:?} bits_number: {} lowr: {}",
+                    i, start, end, bits, bits_number, lower,
+                );
+            }
 
             if bits_number == lower {
                 // c)
-                println!("c)");
+                if DEBUG {
+                    println!("c)");
+                }
                 return self.access(i);
             } else if bits_number > lower {
                 // a)
-                println!("a)");
+                if DEBUG {
+                    println!("a)");
+                }
                 return self.access(Self::decrement_min_zero(i));
             }
         }
 
-        println!(
-            "lower: {} last_in_bucket_ith: {}",
-            lower, last_in_bucket_ith
-        );
+        if DEBUG {
+            println!(
+                "lower: {} last_in_bucket_ith: {}",
+                lower, last_in_bucket_ith
+            );
+        }
 
         // b)
         return self.access(last_in_bucket_ith);

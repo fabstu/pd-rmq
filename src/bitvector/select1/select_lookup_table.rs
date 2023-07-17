@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use super::u64_to_vec_bool;
 use std::cmp::max;
 
+use super::super::super::debug::DEBUG;
+
 #[derive(MallocSizeOf, Clone, Debug)]
 pub struct SelectLookupTable {
     lookup_table: HashMap<Vec<bool>, HashMap<u64, u64>>,
@@ -34,12 +36,14 @@ impl SelectLookupTable {
         // This might be too much.. .
         for i in 0..2u64.pow((maximum_block_size_in_bits) as u32) {
             if i % 100 == 0 {
-                println!(
-                    "Initializing lookup table for i={} from 0 to 2^{} = {}",
-                    i,
-                    maximum_block_size_in_bits,
-                    2u64.pow(maximum_block_size_in_bits as u32)
-                );
+                if DEBUG {
+                    println!(
+                        "Initializing lookup table for i={} from 0 to 2^{} = {}",
+                        i,
+                        maximum_block_size_in_bits,
+                        2u64.pow(maximum_block_size_in_bits as u32)
+                    );
+                }
             }
 
             // Get block bitvector pattern.
@@ -126,10 +130,12 @@ impl SelectLookupTable {
     pub fn lookup(&self, data: &[bool], i: u64) -> u64 {
         // Problem: block with 2 bits is passed in but
         // lookup_table only contains 3-bit blocks to look up.
-        println!(
-            "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
-            data, i, self.lookup_table
-        );
+        if DEBUG {
+            println!(
+                "lookup_table_select: block={:?} i={} lookup_table: {:#?}",
+                data, i, self.lookup_table
+            );
+        }
 
         if data.len() == self.max_lookup_bits as usize {
             // Block has correct length.

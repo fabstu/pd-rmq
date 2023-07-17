@@ -6,6 +6,8 @@ use super::u64_to_vec_bool;
 
 use core::cmp::min;
 
+use super::super::debug::DEBUG;
+
 // Have Rank1 data here to be able to keep initializer here aswell.
 #[derive(MallocSizeOf, Clone)]
 pub struct Rank1 {
@@ -37,12 +39,14 @@ impl Rank1 {
 
         let block_count_per_superblock = block_count / superblock_count + 1;
 
-        println!(
+        if DEBUG {
+            println!(
             "rank1::new - block_size: {} superblock_size: {} block_count: {} superblock_count: {} block_count_per_superblock: {}",
             block_size, superblock_size, block_count, superblock_count, block_count_per_superblock
         );
 
-        println!("rank1: Allocating superblock_1s");
+            println!("rank1: Allocating superblock_1s");
+        }
 
         //
         // Initialize block and superblock arrays.
@@ -51,7 +55,9 @@ impl Rank1 {
         //
         let mut superblock_1s = vec![0u64; (superblock_count + 1) as usize];
 
-        println!("rank1: Allocating block_1s");
+        if DEBUG {
+            println!("rank1: Allocating block_1s");
+        }
 
         // Takes too much space.
         // Problem: block_count is the number of ALL blocks.
@@ -63,7 +69,9 @@ impl Rank1 {
             (superblock_count + 1) as usize
         ];
 
-        println!("rank1: Initializing...");
+        if DEBUG {
+            println!("rank1: Initializing...");
+        }
 
         //
         // Calc 1s up to each superblock.
@@ -88,14 +96,16 @@ impl Rank1 {
                 superblock_1s[superblock_index] = rank;
                 superblock_rank = rank;
 
-                println!(
-                    "Updating superblock={} i: {} data.len: {} superblock_rank: {} bit: {}",
-                    superblock_index,
-                    i,
-                    data.len(),
-                    superblock_rank,
-                    bit
-                );
+                if DEBUG {
+                    println!(
+                        "Updating superblock={} i: {} data.len: {} superblock_rank: {} bit: {}",
+                        superblock_index,
+                        i,
+                        data.len(),
+                        superblock_rank,
+                        bit
+                    );
+                }
             }
 
             // No need to first scope to superblock_size because
@@ -117,15 +127,17 @@ impl Rank1 {
                 // This would mean the last block is not covered, as is the case
                 // in select1.
 
-                println!(
-                    "Updating superblock={} block={}: i: {} data.len: {}block_rank: {} bit: {}",
-                    superblock_index,
-                    block_index,
-                    i,
-                    data.len(),
-                    block_rank,
-                    bit
-                );
+                if DEBUG {
+                    println!(
+                        "Updating superblock={} block={}: i: {} data.len: {}block_rank: {} bit: {}",
+                        superblock_index,
+                        block_index,
+                        i,
+                        data.len(),
+                        block_rank,
+                        bit
+                    );
+                }
 
                 block_1s[superblock_index][block_index] = block_rank;
             }
@@ -151,10 +163,12 @@ impl Rank1 {
 
         // All possible values for block_size.
         for i in 0..2u64.pow((block_size) as u32) {
-            println!(
-                "Creating lookup table block_size={} i={} last_value={}",
-                block_size, i, last_value
-            );
+            if DEBUG {
+                println!(
+                    "Creating lookup table block_size={} i={} last_value={}",
+                    block_size, i, last_value
+                );
+            }
 
             // Get block bitvector pattern.
             let block = u64_to_vec_bool(i, block_size);
@@ -228,10 +242,12 @@ impl Rank1 {
         // Account for the last block not being completely filled.
         block_end = min(block_end, data.len());
 
-        println!(
+        if DEBUG {
+            println!(
             "rank1: i: {} superblock_index: {} block_index: {} block_start: {} block_end: {} superblock_size: {} block_size: {}",
             i, superblock_index, block_index, block_start, block_end, self.superblock_size, self.block_size
         );
+        }
 
         // Copying might be slow, but current alternative is conversion to
         // u32/64.
@@ -254,14 +270,16 @@ impl Rank1 {
         // because that is dvidable by block_size by definition.
         let lookup = i % self.block_size;
 
-        println!(
-            "Superblock rank1: {} block-rank1: {} lookup-rank1: {}",
-            self.rank1_superblock_1s[superblock_index],
-            // Does for block_index == 0 this store the rank1 up to the 1st
-            // block, or rather after the 1st block?
-            self.rank1_block_1s[superblock_index][block_index],
-            self.lookup_table_rank1(block, lookup)
-        );
+        if DEBUG {
+            println!(
+                "Superblock rank1: {} block-rank1: {} lookup-rank1: {}",
+                self.rank1_superblock_1s[superblock_index],
+                // Does for block_index == 0 this store the rank1 up to the 1st
+                // block, or rather after the 1st block?
+                self.rank1_block_1s[superblock_index][block_index],
+                self.lookup_table_rank1(block, lookup)
+            );
+        }
 
         // Problem: With i=151 and superblock-size being 151, this somehow
         // still includes the block with block_start from 151 to 164.
@@ -287,10 +305,12 @@ impl Rank1 {
             result = self.rank1_lookup_table[&(filled_block, lookup)] as u64;
         }
 
-        println!(
-            "Lookup table rank1: block_size: {} block: {:?} lookup: {} -> {}",
-            self.lookup_table_block_size, block, lookup, result
-        );
+        if DEBUG {
+            println!(
+                "Lookup table rank1: block_size: {} block: {:?} lookup: {} -> {}",
+                self.lookup_table_block_size, block, lookup, result
+            );
+        }
 
         return result;
     }

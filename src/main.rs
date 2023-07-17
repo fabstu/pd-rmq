@@ -1,4 +1,5 @@
 mod bitvector;
+mod debug;
 mod heapsize;
 mod instances;
 mod predecessor;

@@ -1,4 +1,4 @@
-pub const DEBUG: bool = false;
+pub const DEBUG: bool = true;
 
 // pub fn debug_println(s: String) {
 //     if DEBUG {

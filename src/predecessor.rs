@@ -48,7 +48,6 @@ impl PD {
     pub fn new(numbers: &mut Vec<u64>) -> Self {
         numbers.sort();
 
-        // TODO:
         // Biggest number in universe.
         //
         // Except.. this means that for u=10, lower_bits is zero.
@@ -315,6 +314,7 @@ impl PD {
         //
         // +1 is necessary here because select0 is 1-based.
         // Except.. select0(2) returns the block after the one I want.
+        // Oh well.
         let p = self.upper.select0(msb as u64)?;
 
         // Indexes up to and including the first in the bucket
@@ -323,7 +323,15 @@ impl PD {
         // is the index in the lower vector, we can start scanning using this.
         // p + 2 here because rank1 does not include the one directly pointing
         // to and so +1 would just include the zero from the group-start.
-        let ith_in_original_numbers = self.upper.rank1(p + 2) - 1;
+        let ith_in_original_numbers: u64;
+        if p == 0 {
+            // Do only add 1 for the rank1-offset.
+            //
+            // Do not add 2 because select0(0) is supposed to return 0.
+            ith_in_original_numbers = self.upper.rank1(p + 1) - 1;
+        } else {
+            ith_in_original_numbers = self.upper.rank1(p + 2) - 1;
+        }
 
         // TODO: question
         // Why is ith_in_original_numbers = 1 here for i == 4 and msb == 1?
@@ -347,7 +355,6 @@ impl PD {
         // The idea is to check whether this is the same bucket.
         //
         // But.. do I really check that that way?
-        // TODO:
         if self.upper.get(p + 1) == false {
             if DEBUG {
                 println!("pred exit: bucket empty");
@@ -432,9 +439,21 @@ impl PD {
                 return self.access(i);
             } else if bits_number > lower {
                 // a)
-                if DEBUG {
-                    println!("a)");
+
+                // Problem: For p == 0, ith can never be 1 because
+                // we always do rank1(p + 1).
+                if ith_in_original_numbers == i && i == 0 {
+                    // Lower is smaller than the first in the initial array.
+                    if DEBUG {
+                        println!("d) lower is smaller than 1st element.")
+                    }
+                    return Ok(u64::MAX);
                 }
+
+                if DEBUG {
+                    println!("a) i: {}", i);
+                }
+
                 return self.access(Self::decrement_min_zero(i));
             }
         }
@@ -528,9 +547,9 @@ fn testing_pd_access() {
 
 #[test]
 fn testing_pd_test() {
-    let path = Path::new("testdata/predecessor_examples/predecessor_example_4.txt");
+    let path: &Path = Path::new("testdata/predecessor_examples/predecessor_example_4.txt");
 
-    let want = vec![0, 0, 2, 2, 4, 4, 4, 7, 7, 7, 7];
+    let want = vec![u64::MAX, 1, 2, 2, 4, 4, 4, 7, 7, 7, 7];
 
     benchmark_and_check(path, Some(want));
 }

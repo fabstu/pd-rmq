@@ -1,5 +1,6 @@
 mod naive_fast;
 mod naive_slow;
+mod rmq_spanning_blocks;
 mod rmq_sparse;
 
 use std::error::Error;
@@ -119,4 +120,11 @@ fn testing_rmq_sparse_benchmark1() {
     let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
     benchmark_and_check::<rmq_sparse::RMQSparse>(path, None);
+}
+
+#[test]
+fn testing_rmq_spanning_benchmark1() {
+    let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
+
+    benchmark_and_check::<rmq_spanning_blocks::RMQSpanningBlocks>(path, None);
 }

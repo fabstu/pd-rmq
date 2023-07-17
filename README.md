@@ -1,7 +1,9 @@
 
+# Implementations
 
-Predecessor DS
-RMQ
+a) Bitvector with rank0/1 and select0/1 proposed in lecture.
+b) Adapted predecessor Elias-Fano proposed in lecture.
+c) RMQ Naive fast space=O(n^2) and slow space=O(n)
 
 
 ## Finding issue with bitvector:

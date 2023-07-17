@@ -1,5 +1,6 @@
 mod naive_fast;
 mod naive_slow;
+mod rmq_sparse;
 
 use naive_fast::RMQNaiveFast;
 use naive_slow::RMQNaiveSlow;
@@ -24,13 +25,13 @@ use super::debug::DEBUG;
 
 #[derive(Debug, PartialEq)]
 pub enum RMQError {
-    None,
+    OutOfRange,
 }
 
 impl fmt::Display for RMQError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            RMQError::None => f.write_str("no error"),
+            RMQError::OutOfRange => f.write_str("Out of range"),
         }
     }
 }
@@ -40,13 +41,13 @@ impl Error for RMQError {}
 pub fn rmq(path: &Path) {
     println!("rmq");
 
-    let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
+    //let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
-    benchmark_and_check::<RMQNaiveFast>(path, None);
+    benchmark_and_check::<rmq_sparse::RMQSparse>(path, None);
 }
 
 pub trait RMQ {
-    fn new(numbers: &Vec<u64>) -> Self;
+    fn new(numbers: Vec<u64>) -> Self;
     fn range_minimum_query(&self, from: usize, to: usize) -> Result<u64, RMQError>;
 }
 
@@ -58,7 +59,7 @@ pub fn benchmark_and_check<T: RMQ + MallocSizeOf>(path: &Path, want: Option<Vec<
     // Check correctness.
     if let Some(want) = want {
         let mut numbers = instance.numbers.clone();
-        let rmq = T::new(&mut numbers);
+        let rmq = T::new(numbers);
 
         for (i, query) in instance.queries.clone().iter().enumerate() {
             println!("Query nr {}: {:?}", i, query);
@@ -81,7 +82,7 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
 
     let start = Instant::now();
 
-    let rmq = T::new(&mut numbers);
+    let rmq = T::new(numbers);
 
     let queries_count = instance.queries.len();
 
@@ -111,8 +112,15 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
 // }
 
 #[test]
-fn testing_rmq_benchmark1() {
+fn testing_rmq_naivefast_benchmark1() {
     let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
-    benchmark_and_check::<RMQNaiveFast>(path, None);
+    benchmark_and_check::<RMQNaiveSlow>(path, None);
+}
+
+#[test]
+fn testing_rmq_sparse_benchmark1() {
+    let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
+
+    benchmark_and_check::<rmq_sparse::RMQSparse>(path, None);
 }

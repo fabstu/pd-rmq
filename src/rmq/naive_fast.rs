@@ -7,7 +7,7 @@ pub struct RMQNaiveFast {
 }
 
 impl RMQNaiveFast {
-    pub fn new(numbers: &Vec<u64>) -> Self {
+    pub fn new(numbers: Vec<u64>) -> Self {
         let n = numbers.len();
 
         // O(u^2). Could do u log n using consecutively less space for "to".
@@ -36,5 +36,15 @@ impl RMQNaiveFast {
         assert!(to < self.naive.len());
 
         return Ok(self.naive[from][to]);
+    }
+}
+
+impl RMQ for RMQNaiveFast {
+    fn new(numbers: Vec<u64>) -> Self {
+        RMQNaiveFast::new(numbers)
+    }
+
+    fn range_minimum_query(&self, from: usize, to: usize) -> Result<u64, RMQError> {
+        RMQNaiveFast::range_minimum_query(self, from, to)
     }
 }

@@ -1,5 +1,11 @@
 use std::collections::HashSet;
 
+use std::ops::Index;
+use std::ops::IndexMut;
+use std::ops::Range;
+use std::ops::RangeBounds;
+
+#[derive(MallocSizeOf, Clone)]
 pub struct SparseBitVec {
     set: HashSet<usize>,
 }
@@ -42,6 +48,23 @@ impl SparseBitVec {
         (start..end).map(|i| self.contains(i)).collect()
     }
 }
+
+impl Index<usize> for SparseBitVec {
+    type Output = bool;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        Box::leak(Box::new(self.contains(index)))
+    }
+}
+
+// impl<T> Index<RangeFull> for Vec<T> {
+//     type Output = [T];
+
+//     fn index(&self, _index: RangeFull) -> &[T] {
+//         // Return a slice to all elements in the vector
+//         self.as_slice()
+//     }
+// }
 
 impl IntoIterator for SparseBitVec {
     type Item = usize;

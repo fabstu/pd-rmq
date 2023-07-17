@@ -7,6 +7,7 @@ use std::fmt;
 
 pub use rank1::*;
 pub use select1::*;
+use sparse_bit_vector::SparseBitVec;
 use sparse_bit_vector::*;
 
 #[allow(unused_imports)]
@@ -78,7 +79,8 @@ impl Bitvector {
             rank: Rank1::new(&data),
             select0: select0,
             select1: select1,
-            data: SparseBitVec::from_vec(data),
+            data: data,
+            //data: SparseBitVec::from_vec(data),
         };
 
         println!("Finished setting up bitvector.");

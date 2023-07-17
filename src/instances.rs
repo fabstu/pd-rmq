@@ -31,7 +31,7 @@ pub fn read_pd_instance(path: &Path) -> Result<PDInstance, Box<dyn Error>> {
     for _i in 0..number_count {
         reader.read_line(&mut line_buffer)?;
 
-        println!("line: {}", line_buffer);
+        //println!("line: {}", line_buffer);
 
         // Trim to avoid newline.
         instance.numbers.push(line_buffer.trim().parse::<u64>()?);
@@ -46,7 +46,7 @@ pub fn read_pd_instance(path: &Path) -> Result<PDInstance, Box<dyn Error>> {
             continue;
         }
 
-        println!("line: {}", line);
+        //println!("line: {}", line);
 
         // Trim to avoid newline.
         instance.queries.push(line.trim().parse::<u64>()?);

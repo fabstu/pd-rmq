@@ -117,6 +117,12 @@ impl PD {
                 pi + i,
                 pi_divisor
             );
+
+            // Crash here due to pi + i going over upper_vec.
+            // 38 mio vs 2 mio.
+            //
+            // Setting to true: number: 40539300726434 i: 0 pi: 38661289 pi+i: 38661289 pi_divisor: 1048576
+            // thread 'predecessor::testing_pd_benchmark1' panicked at 'index out of bounds: the len is 2000001 but the index is 38661289', src/predecessor.rs:120:13
             upper_vec[pi + i] = true;
 
             // Iterate lower bits using shifting the j-th bit to the first
@@ -264,24 +270,40 @@ impl PD {
         let (lower, msb) = self.split(i);
 
         // Index in upper vector of the start of the bucket.
+        //
+        // +1 is necessary here because select0 is 1-based.
+        // Except.. select0(2) returns the block after the one I want.
         let p = self.upper.select0(msb as u64)?;
 
         // Indexes up to and including the first in the bucket
         //
         // Because the prefix sum up to and including that one
         // is the index in the lower vector, we can start scanning using this.
-        let ith_in_original_numbers = self.upper.rank1(p + 1) - 1;
+        // p + 2 here because rank1 does not include the one directly pointing
+        // to and so +1 would just include the zero from the group-start.
+        let ith_in_original_numbers = self.upper.rank1(p + 2) - 1;
+
+        // TODO: question
+        // Why is ith_in_original_numbers = 1 here for i == 4 and msb == 1?
+        // Ahh.. maybe -1 is not necessary for rank1?
+        // Yes, -1 is necessary because rank1 counts all before and up to
+        // p + 1, whereby p is the beginning of the block (the zero).
 
         // If ith is the last in the original numbers, then bucket is empty
         // anyway. Except.. if i-th is much earlier, then.. .
         if ith_in_original_numbers == self.numbers_count - 1 {
-            println!("pred exit: last number");
+            println!("pred exit: last number - p: {} msb: {}", p, msb);
             return self.access(ith_in_original_numbers);
         }
 
         // p in upper is already false.
         //
 
+        // Checks whether the number after p is false.
+        // The idea is to check whether this is the same bucket.
+        //
+        // But.. do I really check that that way?
+        // TODO:
         if self.upper.get(p + 1) == false {
             println!("pred exit: bucket empty");
             // We are in a higher bucket, so the bucket was empty, so we need to
@@ -295,14 +317,20 @@ impl PD {
             // So.. access is one-based?
             // Except I subtract one except for zero.. maybe decrease only up
             // to 1.
-            return self.access(self.upper.rank1(p) - 1);
+            return self.access(self.upper.rank1(p + 1) - 1);
         }
 
         // Get the next bucket.
         //
         // But.. how do I handle there not being any bucket anymore?
+        //
+        // +1 here because select0 is 1-based.
         let next_bucket_p = self.upper.select0(msb as u64 + 1)?;
+
         // Indexes up to and including the last in the bucket
+        //
+        // No +1 or +2 here, because I want to just count until the end of the
+        // previous bucket before next_bucket_p.
         let last_in_bucket_ith = self.upper.rank1(next_bucket_p) - 1;
 
         println!(
@@ -437,12 +465,33 @@ fn testing_pd_access() {
 }
 
 #[test]
-fn testing_pd_benchmark() {
+fn testing_pd_test() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_4.txt");
 
     let want = vec![0, 0, 2, 2, 4, 4, 4, 7, 7, 7, 7];
 
     benchmark_and_check(path, Some(want));
+}
+
+#[test]
+fn testing_pd_benchmark1() {
+    let path = Path::new("testdata/predecessor_examples/predecessor_example_1.txt");
+
+    benchmark_and_check(path, None);
+}
+
+#[test]
+fn testing_xpd_benchmark2() {
+    let path = Path::new("testdata/predecessor_examples/predecessor_example_2.txt");
+
+    benchmark_and_check(path, None);
+}
+
+#[test]
+fn testing_xpd_benchmark3() {
+    let path = Path::new("testdata/predecessor_examples/predecessor_example_3.txt");
+
+    benchmark_and_check(path, None);
 }
 
 #[test]

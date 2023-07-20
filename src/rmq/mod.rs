@@ -36,15 +36,15 @@ impl fmt::Display for RMQError {
 
 impl Error for RMQError {}
 
-pub fn rmq(path: &Path) {
+pub fn rmq(path: &Path, out: Option<String>) {
     if DEBUG {
         println!("rmq");
     }
 
     //let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
-    benchmark_and_check_path::<rmq_spanning_blocks::RMQSpanningBlocks>(path, None);
-    benchmark_and_check_path::<rmq_sparse::RMQSparse>(path, None);
+    benchmark_and_check_path::<rmq_spanning_blocks::RMQSpanningBlocks>(path, None, out);
+    // benchmark_and_check_path::<rmq_sparse::RMQSparse>(path, None);
 }
 
 pub trait RMQ {
@@ -52,14 +52,19 @@ pub trait RMQ {
     fn range_minimum_query(&self, from: usize, to: usize) -> Result<usize, RMQError>;
 }
 
-pub fn benchmark_and_check_path<T: RMQ + MallocSizeOf>(path: &Path, want: Option<Vec<usize>>) {
+pub fn benchmark_and_check_path<T: RMQ + MallocSizeOf>(
+    path: &Path,
+    want: Option<Vec<usize>>,
+    out: Option<String>,
+) {
     let instance = instances::read_rmq_instance(path).unwrap();
-    benchmark_and_check_instance::<T>(instance, want);
+    benchmark_and_check_instance::<T>(instance, want, out);
 }
 
 pub fn benchmark_and_check_instance<T: RMQ + MallocSizeOf>(
     instance: RMQInstance,
     want: Option<Vec<usize>>,
+    out: Option<String>,
 ) {
     if DEBUG {
         println!("rmq");
@@ -105,9 +110,10 @@ pub fn benchmark_and_check_instance<T: RMQ + MallocSizeOf>(
     }
 
     // Start benchmark
-    benchmark::<T>(instance);
+    benchmark::<T>(instance, out);
 }
 
+#[allow(dead_code)]
 pub fn benchmark_and_check_with_checker<T: RMQ + MallocSizeOf, Checker: RMQ + MallocSizeOf>(
     path: &Path,
     want_number_checked: isize,
@@ -140,12 +146,14 @@ pub fn benchmark_and_check_with_checker<T: RMQ + MallocSizeOf, Checker: RMQ + Ma
     }
 }
 
+#[allow(dead_code)]
 pub fn benchmark_and_check_with_checker_parallel<
     T: RMQ + MallocSizeOf,
     Checker: RMQ + MallocSizeOf,
 >(
     path: &Path,
     want_number_checked: isize,
+    out: Option<String>,
 ) {
     println!("rmq");
 
@@ -204,12 +212,14 @@ pub fn benchmark_and_check_with_checker_parallel<
         }
     }
 
-    benchmark::<T>(instance);
+    benchmark::<T>(instance, out);
 }
 
-fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
+fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance, out: Option<String>) {
     // Clone numbers because we sort them.
     let numbers = instance.numbers;
+
+    let mut got_all: Vec<u64> = Vec::with_capacity(numbers.len());
 
     let start = Instant::now();
 
@@ -218,7 +228,10 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
     let queries_count = instance.queries.len();
 
     for (i, query) in instance.queries.iter().enumerate() {
-        _ = rmq.range_minimum_query(query.0 as usize, query.1 as usize);
+        got_all.push(
+            rmq.range_minimum_query(query.0 as usize, query.1 as usize)
+                .unwrap() as u64,
+        );
 
         if DEBUG {
             if i % 100 == 0 {
@@ -231,6 +244,8 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
 
     let mut ops = MallocSizeOfOps::new(heapsize::platform::usable_size, None, None);
     let size = rmq.size_of(&mut ops);
+
+    report::write_out(out, got_all);
 
     report::report("rmq", duration, size);
 }
@@ -248,7 +263,7 @@ fn benchmark<T: RMQ + MallocSizeOf>(instance: RMQInstance) {
 fn testing_rmq_naiveslow_benchmark1() {
     let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
-    benchmark_and_check_path::<naive_slow::RMQNaiveSlow>(path, None);
+    benchmark_and_check_path::<naive_slow::RMQNaiveSlow>(path, None, None);
 }
 
 #[test]
@@ -266,7 +281,7 @@ fn testing_rmq_spanning_benchmark1() {
     benchmark_and_check_with_checker_parallel::<
         rmq_spanning_blocks::RMQSpanningBlocks,
         rmq_sparse::RMQSparse,
-    >(path, -1);
+    >(path, -1, None);
 }
 
 #[test]
@@ -276,5 +291,5 @@ fn testing_rmq_spanning_benchmark2() {
     benchmark_and_check_with_checker_parallel::<
         rmq_spanning_blocks::RMQSpanningBlocks,
         rmq_sparse::RMQSparse,
-    >(path, -1);
+    >(path, -1, None);
 }

@@ -26,13 +26,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn real_main(args: Vec<String>) -> Result<(), Box<dyn Error>> {
-    if args.len() != 3 {
-        println!("Usage: {} <command> <file>", args[0]);
+    if args.len() != 4 {
+        println!("Usage: {} <command> <input-file> <out-file>", args[0]);
         std::process::exit(1);
     }
 
     let command = &args[1];
     let file_path: &Path = Path::new(&args[2]);
+    let out_filepath = &args[3];
 
     if !file_path.exists() {
         println!("File {} does not exist", file_path.display());
@@ -40,8 +41,8 @@ async fn real_main(args: Vec<String>) -> Result<(), Box<dyn Error>> {
     }
 
     match command.as_ref() {
-        "pd" => predecessor::benchmark_and_check(file_path, None),
-        "rmq" => rmq::rmq(file_path),
+        "pd" => predecessor::benchmark_and_check(file_path, None, Some(out_filepath.clone())),
+        "rmq" => rmq::rmq(file_path, Some(out_filepath.clone())),
         _ => {
             println!("Unknown command");
             std::process::exit(1);

@@ -34,14 +34,6 @@ impl PD {
         let upper = i / pi_divisor;
         let lower = i % pi_divisor;
 
-        // // Remove lower bits for upper bits.
-        // let upper: usize = (i >> lower_bits) as usize;
-
-        // // Shift lowerBits times left to get 1 000 0000 000...
-        // // then -1 to make all lowerBits 1 while removing the leading one
-        // // that was too much.
-        // let lower = i & ((1 << lower_bits) - 1);
-
         return (lower, upper as usize);
     }
 
@@ -81,16 +73,10 @@ impl PD {
         // So... choosing both the same might work.
 
         let mut lower_bits = n_float.log2().ceil() as i32;
-        // Is 44 for n=1.000.000 with upper=20!
-        // Fixed ceil -> floor to not get 45.
-        // let upper_bits = max(((u as f64).log2() - n_float.log2()).ceil() as i32, 2);
-
-        // let mut upper_bits = (u as f64).log2().ceil() as i32;
         let mut upper_bits = n_float.log2().ceil() as i32;
 
-        //question
         // Why are upper and lower bits based on # of numbers instead of
-        // universe?
+        // universe? Nevermind.
 
         let mut upper_vec: Vec<bool> = vec![false; 2 * n * 10 + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
@@ -132,12 +118,6 @@ impl PD {
             // Basically gets used
             let pi = (number / pi_divisor) as usize;
 
-            // let pi: usize = (number >> lowerBits) as usize;
-
-            // // Shift lowerBits times left to get 1 000 0000 000...
-            // // then -1 to make all lowerBits 1 while removing the leading one
-            // // that was too much.
-            // let lower = number & ((1 << lowerBits) - 1);
             if DEBUG {
                 println!(
                 "Setting to true: number: {} i: {} pi: {} pi+i: {} pi_divisor: {}, upper_bits: {}, lower_bits: {}",
@@ -151,11 +131,7 @@ impl PD {
             );
             }
 
-            // Crash here due to pi + i going over upper_vec.
-            // 38 mio vs 2 mio.
-            //
-            // Setting to true: number: 40539300726434 i: 0 pi: 38661289 pi+i: 38661289 pi_divisor: 1048576
-            // thread 'predecessor::testing_pd_benchmark1' panicked at 'index out of bounds: the len is 2000001 but the index is 38661289', src/predecessor.rs:120:13
+            // Set upper bit to true.
             upper_vec[pi + i] = true;
 
             // Iterate lower bits using shifting the j-th bit to the first
@@ -190,9 +166,8 @@ impl PD {
     }
 
     // Lower bit access:
-    // i - 1 bits davor * Anzah-bits die die zahlen lang sind
+    // i - 1 bits davor * Anzahlå-bits die die zahlen lang sind
     // -> einzelne bits lesen.
-    #[allow(dead_code)]
     pub fn access(&self, i: u64) -> Result<u64, MyError> {
         if DEBUG {
             println!(
@@ -204,14 +179,6 @@ impl PD {
         }
 
         assert!(i < self.numbers_count, "i must be smaller than n");
-
-        // Crashes for i == 1 because upper.select1(1) returns 0.
-        // Isn't i supposed to be something akin to be added to?
-        //
-        // Problem: My select1 is zero-based, so returning
-        //
-        // select(i + 1) does not help because then I get select1(1=5),
-        // when there are only four 1s.
 
         // Ahhh! select0(0) to return 0 is just supposed to mean that
         // the first bucket (which select0(0) is supposed to return is made
@@ -234,10 +201,6 @@ impl PD {
         // the other?
         //
         // Switched upper_bits and lower_bits.
-
-        // question
-        // Why is upper_part not 1 for 2 upper_bits?
-
         let upper_part: u64;
 
         if i == 0 {
@@ -247,7 +210,6 @@ impl PD {
             // while returning 0 for select1(0).
             //
             // Except: i + 1 for i == self.number_count goes over the limit.
-
             if i == self.numbers_count {
                 upper_part = self.upper.select1(i + 1)? - i;
             } else {
@@ -255,18 +217,11 @@ impl PD {
             }
         }
 
-        let mut lower_part = 0;
+        // Get lower bits from self.lower.
+        let lower_bits =
+            &self.lower[(i * self.lower_bits) as usize..((i + 1) * self.lower_bits) as usize];
 
-        for j in 0..self.lower_bits as u64 {
-            // For acessing the last element, crashes.
-            // It accessed self.lower[8], while the size of lower is 8.
-            //
-            // Maybe fix it by making access zero-based?
-            // Or isn't it already?
-            let bit = self.lower[(i * self.lower_bits + j) as usize];
-
-            lower_part = lower_part | (if bit { 1 } else { 0 } << j);
-        }
+        let lower_part = Self::bits_to_u64(lower_bits);
 
         if DEBUG {
             println!(
@@ -299,13 +254,6 @@ impl PD {
     }
 
     pub fn pred(&self, i: u64) -> Result<u64, MyError> {
-        // This returns mostly the wrong numbers because the -i removes
-        // the offset i, which currently with zero lower bits carries
-        // the offset in the bucket.
-        //
-        // And we also do not take the bucket
-        // into account: + bucket * pi_divisor.
-
         // Split into lower and upper.
         //
         // Quqestion: MSB is supposed to include zeroes and ones both, right?
@@ -313,18 +261,13 @@ impl PD {
         let (lower, msb) = self.split(i);
 
         // Index in upper vector of the start of the bucket.
-        //
-        // +1 is necessary here because select0 is 1-based.
-        // Except.. select0(2) returns the block after the one I want.
-        // Oh well.
         let p = self.upper.select0(msb as u64)?;
 
         // Indexes up to and including the first in the bucket
         //
         // Because the prefix sum up to and including that one
         // is the index in the lower vector, we can start scanning using this.
-        // p + 2 here because rank1 does not include the one directly pointing
-        // to and so +1 would just include the zero from the group-start.
+
         let ith_in_original_numbers: u64;
         if p == 0 {
             // Do only add 1 for the rank1-offset.
@@ -332,15 +275,15 @@ impl PD {
             // Do not add 2 because select0(0) is supposed to return 0.
             ith_in_original_numbers = self.upper.rank1(p + 1) - 1;
         } else {
+            // p + 2 here because rank1 does not include the one directly
+            // pointing to and so +1 would just include the zero from the
+            // group-start.
             ith_in_original_numbers = self.upper.rank1(p + 2) - 1;
         }
 
-        // TODO: question
-        // Why is ith_in_original_numbers = 1 here for i == 4 and msb == 1?
-        // Ahh.. maybe -1 is not necessary for rank1?
-        // Yes, -1 is necessary because rank1 counts all before and up to
+        // -1 is necessary because rank1 counts all before and up to
         // p + 1, whereby p is the beginning of the block (the zero).
-
+        //
         // If ith is the last in the original numbers, then bucket is empty
         // anyway. Except.. if i-th is much earlier, then.. .
         if ith_in_original_numbers == self.numbers_count - 1 {
@@ -349,9 +292,6 @@ impl PD {
             }
             return self.access(ith_in_original_numbers);
         }
-
-        // p in upper is already false.
-        //
 
         // Checks whether the number after p is false.
         // The idea is to check whether this is the same bucket.
@@ -364,7 +304,6 @@ impl PD {
             // We are in a higher bucket, so the bucket was empty, so we need to
             // take the last from a smaller bucket and return that.
             //
-            //todo
             // Might be an issue that rank1 returns up to 4 while self.access
             // is zero-based.
             //
@@ -409,34 +348,23 @@ impl PD {
         //    would be biggest because it is in that bucket. Return the last
         //    in this bucket.
         // c) If lower equals to lower_bits, return self.access(same).
-
-        // BUt.. what about ith == lower?
-
-        // Iterate in lower_vec by lower_bits.
-        //
-        // Can be sped up getting bucket boundaries and
-        // halving each time for O(n log n).
-
-        // Problem: This can go outside the bucket,
-        // in which case the last of the bucket is supposed to be returned.
-
-        // for i in ith_in_original_numbers..=last_in_bucket_ith {
-
-        // Problem: For p == 0, ith can never be 1 because
-        // we always do rank1(p + 1).
+        // d) Given number is smaller compared to all others.
 
         //
         // Check whether the first in the bucket is bigger than lower,
         // mean we return the MAX value.
         //
         if self.get_lower_bits(0) > lower && ith_in_original_numbers == 0 {
-            // Lower is smaller than the first in the initial array.
+            // d: Lower is smaller than the first in the initial array.
             if DEBUG {
                 println!("d) lower is smaller than 1st element.");
             }
             return Ok(u64::MAX);
         }
 
+        //
+        // Binary search with boundaries start end end of bucket.
+        //
         let mut start_original = ith_in_original_numbers;
         let mut end_original = last_in_bucket_ith;
 
@@ -448,7 +376,7 @@ impl PD {
 
             if DEBUG {
                 println!(
-                    "i: {} mid: {}, start_original: {}, end_original: {} bits_number: {} lowr: {}",
+                    "i={} mid: {}, start_original: {}, end_original: {} bits_number: {} lowr: {}",
                     i, mid, start_original, end_original, bits_number, lower,
                 );
             }
@@ -467,30 +395,18 @@ impl PD {
             }
 
             if bits_number > lower {
-                // TODO: Do I update these in the correct way?
-                // Or rather is it the other way around due to the > ?
-
                 if DEBUG {
                     println!("i={} Decrementing end_original", i);
                 }
                 end_original = mid - 1;
 
-                //
-                // Found one that is bigger than lower, but there can be a
-                // lower index that is also bigger than lower,
-                // which we ultimately want to return.
-                //
                 if DEBUG {
                     println!("Updating latest found to mid={}", mid);
                 }
                 latest_found_original_bigger_than_lower = Some(mid);
-                break;
             } else {
-                // Do not decrement below zero.
-                // That case indicates we are finished searching anyway, since
-                // that makes start bigger than end.
                 if DEBUG {
-                    println!("i={} Incremeenting", i);
+                    println!("i={} Incrementing", i);
                 }
                 start_original = mid + 1;
             }
@@ -537,9 +453,11 @@ impl PD {
     }
 }
 
-fn benchmark(instance: PDInstance) {
+fn benchmark(instance: PDInstance, out: Option<String>) {
     // Clone numbers because we sort them.
     let mut numbers = instance.numbers.clone();
+
+    let mut got_all: Vec<u64> = Vec::with_capacity(instance.queries.len());
 
     let start = Instant::now();
 
@@ -548,22 +466,29 @@ fn benchmark(instance: PDInstance) {
     let queries_count = instance.queries.len();
 
     for (i, query) in instance.queries.iter().enumerate() {
-        _ = pd.pred(*query);
+        got_all.push(pd.pred(*query).unwrap());
 
-        if i % 100 == 0 {
-            println!("Query nr {}/{}", i, queries_count);
+        if DEBUG {
+            if i % 100 == 0 {
+                println!("Query nr {}/{}", i, queries_count);
+            }
         }
     }
 
     let duration = start.elapsed();
 
+    //
+    // Measure malloc.
+    //
     let mut ops = MallocSizeOfOps::new(heapsize::platform::usable_size, None, None);
     let size = pd.size_of(&mut ops);
+
+    report::write_out(out, got_all);
 
     report::report("pd", duration, size);
 }
 
-pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
+pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>, out: Option<String>) {
     println!("pd");
 
     let instance = instances::read_pd_instance(path).unwrap();
@@ -574,18 +499,17 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
         let pd = PD::new(&mut numbers);
 
         for (i, query) in instance.queries.clone().iter().enumerate() {
-            // if DEBUG {
-            println!("Query nr {}: {}", i, query);
-            // }
+            if DEBUG {
+                println!("Query nr {}: {}", i, query);
+            }
+
             let got = pd.pred(*query).unwrap();
             assert_eq!(want[i], got, "Query nr {}: {}", i, query);
         }
-
-        // assert_eq!(want, got);
     }
 
     // Start benchmark
-    benchmark(instance);
+    benchmark(instance, out);
 }
 
 #[test]
@@ -595,17 +519,6 @@ fn testing_pd_access() {
     let got: Vec<u64> = (0..10).map(|i| pd.access(i).unwrap()).collect();
 
     assert_eq!(vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9], got);
-
-    // assert_eq!(0, pd.access(0).unwrap());
-    // assert_eq!(1, pd.access(1).unwrap());
-    // assert_eq!(2, pd.access(2).unwrap());
-    // assert_eq!(3, pd.access(3).unwrap());
-    // assert_eq!(4, pd.access(4).unwrap());
-    // assert_eq!(5, pd.access(5).unwrap());
-    // assert_eq!(6, pd.access(6).unwrap());
-    // assert_eq!(7, pd.access(7).unwrap());
-    // assert_eq!(8, pd.access(8).unwrap());
-    // assert_eq!(9, pd.access(9).unwrap());
 }
 
 #[test]
@@ -614,28 +527,28 @@ fn testing_pd_test() {
 
     let want = vec![u64::MAX, 1, 2, 2, 4, 4, 4, 7, 7, 7, 7];
 
-    benchmark_and_check(path, Some(want));
+    benchmark_and_check(path, Some(want), None);
 }
 
 #[test]
 fn testing_pd_benchmark1() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_1.txt");
 
-    benchmark_and_check(path, None);
+    benchmark_and_check(path, None, None);
 }
 
 #[test]
 fn testing_pd_benchmark2() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_2.txt");
 
-    benchmark_and_check(path, None);
+    benchmark_and_check(path, None, None);
 }
 
 #[test]
 fn testing_pd_benchmark3() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_3.txt");
 
-    benchmark_and_check(path, None);
+    benchmark_and_check(path, None, None);
 }
 
 #[test]

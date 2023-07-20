@@ -4,6 +4,8 @@ use std::io;
 use std::io::BufRead;
 use std::path::Path;
 
+use crate::debug::DEBUG;
+
 pub struct PDInstance {
     pub numbers: Vec<u64>,
     pub queries: Vec<u64>,
@@ -57,7 +59,7 @@ pub fn read_pd_instance(path: &Path) -> Result<PDInstance, Box<dyn Error>> {
 
 pub struct RMQInstance {
     pub numbers: Vec<u64>,
-    pub queries: Vec<(u64, u64)>,
+    pub queries: Vec<(usize, usize)>,
 }
 
 pub fn read_rmq_instance(path: &Path) -> Result<RMQInstance, Box<dyn Error>> {
@@ -72,7 +74,9 @@ pub fn read_rmq_instance(path: &Path) -> Result<RMQInstance, Box<dyn Error>> {
     let mut number_count_string = String::new();
     reader.read_line(&mut number_count_string)?;
 
-    println!("number_count_string: {}", number_count_string);
+    if DEBUG {
+        println!("number_count_string: {}", number_count_string);
+    }
 
     // Trim to avoid newline.
     let number_count = number_count_string.trim().parse::<i32>()?;
@@ -104,8 +108,8 @@ pub fn read_rmq_instance(path: &Path) -> Result<RMQInstance, Box<dyn Error>> {
         assert_eq!(2, vec.len());
 
         // parse each string to u64
-        let a: u64 = vec[0].parse().unwrap();
-        let b: u64 = vec[1].parse().unwrap();
+        let a: usize = vec[0].parse().unwrap();
+        let b: usize = vec[1].parse().unwrap();
 
         // Trim to avoid newline.
         instance.queries.push((a, b));

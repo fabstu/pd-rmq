@@ -169,14 +169,16 @@ impl PD {
             }
         }
 
-        println!(
-            "PD::new - numbers: {} upper: {:?} lower: {:?} upper_bits: {} lower_bits: {}",
-            numbers.len(),
-            upper_vec.len(),
-            lower_vec.len(),
-            upper_bits,
-            lower_bits
-        );
+        if DEBUG {
+            println!(
+                "PD::new - numbers: {} upper: {:?} lower: {:?} upper_bits: {} lower_bits: {}",
+                numbers.len(),
+                upper_vec.len(),
+                lower_vec.len(),
+                upper_bits,
+                lower_bits
+            );
+        }
 
         return Self {
             numbers_count: n as u64,
@@ -417,17 +419,37 @@ impl PD {
 
         // Problem: This can go outside the bucket,
         // in which case the last of the bucket is supposed to be returned.
-        for i in ith_in_original_numbers..=last_in_bucket_ith {
-            let start = (i * self.lower_bits) as usize;
-            let end = start + self.lower_bits as usize;
 
-            let bits: &[bool] = &self.lower[start..end];
-            let bits_number = Self::bits_to_u64(bits);
+        // for i in ith_in_original_numbers..=last_in_bucket_ith {
+
+        // Problem: For p == 0, ith can never be 1 because
+        // we always do rank1(p + 1).
+
+        //
+        // Check whether the first in the bucket is bigger than lower,
+        // mean we return the MAX value.
+        //
+        if self.get_lower_bits(0) > lower && ith_in_original_numbers == 0 {
+            // Lower is smaller than the first in the initial array.
+            if DEBUG {
+                println!("d) lower is smaller than 1st element.");
+            }
+            return Ok(u64::MAX);
+        }
+
+        let mut start_original = ith_in_original_numbers;
+        let mut end_original = last_in_bucket_ith;
+
+        let mut latest_found_original_bigger_than_lower: Option<u64> = None;
+
+        while start_original <= end_original {
+            let mid = start_original + (end_original - start_original) / 2;
+            let bits_number = self.get_lower_bits(mid);
 
             if DEBUG {
                 println!(
-                    "i: {} start: {} end: {} bits: {:?} bits_number: {} lowr: {}",
-                    i, start, end, bits, bits_number, lower,
+                    "i: {} mid: {}, start_original: {}, end_original: {} bits_number: {} lowr: {}",
+                    i, mid, start_original, end_original, bits_number, lower,
                 );
             }
 
@@ -436,45 +458,84 @@ impl PD {
                 if DEBUG {
                     println!("c)");
                 }
-                return self.access(i);
-            } else if bits_number > lower {
-                // a)
 
-                // Problem: For p == 0, ith can never be 1 because
-                // we always do rank1(p + 1).
-                if ith_in_original_numbers == i && i == 0 {
-                    // Lower is smaller than the first in the initial array.
-                    if DEBUG {
-                        println!("d) lower is smaller than 1st element.")
-                    }
-                    return Ok(u64::MAX);
-                }
+                //
+                // Fast exit here because the other cases only matter
+                // when lower is not equal to the bits_number.
+                //
+                return self.access(mid);
+            }
+
+            if bits_number > lower {
+                // TODO: Do I update these in the correct way?
+                // Or rather is it the other way around due to the > ?
 
                 if DEBUG {
-                    println!("a) i: {}", i);
+                    println!("i={} Decrementing end_original", i);
                 }
+                end_original = mid - 1;
 
-                return self.access(Self::decrement_min_zero(i));
+                //
+                // Found one that is bigger than lower, but there can be a
+                // lower index that is also bigger than lower,
+                // which we ultimately want to return.
+                //
+                if DEBUG {
+                    println!("Updating latest found to mid={}", mid);
+                }
+                latest_found_original_bigger_than_lower = Some(mid);
+                break;
+            } else {
+                // Do not decrement below zero.
+                // That case indicates we are finished searching anyway, since
+                // that makes start bigger than end.
+                if DEBUG {
+                    println!("i={} Incremeenting", i);
+                }
+                start_original = mid + 1;
             }
         }
 
         if DEBUG {
             println!(
-                "lower: {} last_in_bucket_ith: {}",
-                lower, last_in_bucket_ith
+                "i={} Done searching found_ith_orig: {:?}",
+                i, latest_found_original_bigger_than_lower
             );
         }
 
-        // b)
-        return self.access(last_in_bucket_ith);
+        match latest_found_original_bigger_than_lower {
+            Some(found_in_original) => {
+                // a)
+                if DEBUG {
+                    println!("a) i: {}", found_in_original);
+                }
+
+                return self.access(Self::decrement_min_zero(found_in_original));
+            }
+            None => {
+                // b)
+                if DEBUG {
+                    println!(
+                        "b: lower: {} last_in_bucket_ith: {}",
+                        lower, last_in_bucket_ith
+                    );
+                }
+
+                return self.access(last_in_bucket_ith);
+            }
+        }
+    }
+
+    fn get_lower_bits(&self, i: u64) -> u64 {
+        let start_bits = (i * self.lower_bits) as usize;
+        let end_bits = start_bits + self.lower_bits as usize;
+
+        let bits: &[bool] = &self.lower[start_bits..end_bits];
+        let bits_number = Self::bits_to_u64(bits);
+
+        return bits_number;
     }
 }
-
-// struct Report {
-//     algo: String,
-//     time: time::Duration,
-//     space: usize,
-// }
 
 fn benchmark(instance: PDInstance) {
     // Clone numbers because we sort them.
@@ -513,7 +574,9 @@ pub fn benchmark_and_check(path: &Path, want: Option<Vec<u64>>) {
         let pd = PD::new(&mut numbers);
 
         for (i, query) in instance.queries.clone().iter().enumerate() {
+            // if DEBUG {
             println!("Query nr {}: {}", i, query);
+            // }
             let got = pd.pred(*query).unwrap();
             assert_eq!(want[i], got, "Query nr {}: {}", i, query);
         }
@@ -562,14 +625,14 @@ fn testing_pd_benchmark1() {
 }
 
 #[test]
-fn testing_xpd_benchmark2() {
+fn testing_pd_benchmark2() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_2.txt");
 
     benchmark_and_check(path, None);
 }
 
 #[test]
-fn testing_xpd_benchmark3() {
+fn testing_pd_benchmark3() {
     let path = Path::new("testdata/predecessor_examples/predecessor_example_3.txt");
 
     benchmark_and_check(path, None);

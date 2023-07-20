@@ -44,7 +44,8 @@ pub fn rmq(path: &Path, out: Option<String>) {
     //let path = Path::new("testdata/rmq_examples/rmq_example_1.txt");
 
     benchmark_and_check_path::<rmq_spanning_blocks::RMQSpanningBlocks>(path, None, out);
-    // benchmark_and_check_path::<rmq_sparse::RMQSparse>(path, None);
+    // benchmark_and_check_path::<rmq_sparse::RMQSparse>(path, None, None);
+    // benchmark_and_check_path::<naive_slow::RMQNaiveSlow>(path, None, None);
 }
 
 pub trait RMQ {

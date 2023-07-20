@@ -42,10 +42,6 @@ impl RMQSpanningBlocks {
         let block_minimum_position_in_block = vec![0usize; block_count as usize];
 
         // Fill block_minimum and block_minimum_position_in_block.
-        //
-        // Except.. isn't sparse tree supposed to do that?
-        //panic!("Calculate block minimums.");
-
         let mut min = std::u64::MAX;
         for i in 0..numbers.len() {
             // Is i included in this block_minimum or only in the next?
@@ -173,10 +169,7 @@ impl RMQSpanningBlocks {
             }
         }
 
-        // TODO: What about the first and the last block?
-
         // 1: Blocks and one or two partial blocks.
-
         if DEBUG {
             println!(
                 "case1: from_block: {}, to_block: {}, from_block_offset: {}, to_block_offset: {}",
@@ -238,12 +231,6 @@ impl RMQSpanningBlocks {
         let block_minimum_index = self
             .block_minimum_sparse
             .range_minimum_query(from_block, to_block)?;
-        // Currently returns the block number.
-        //
-        // Except: Does not give back the exact index!
-        //
-        // So.. this is weird in general.
-        // Why would this give back an offset wrong by 3?
 
         let block_minimum = self.number(block_minimum_index);
 
@@ -408,62 +395,16 @@ impl CartesianTrees {
     fn precompute_for_cartesian_tree(block: &[u64]) -> Vec<Vec<usize>> {
         let s = block.len();
 
-        // assert!(
-        //     s <= 20,
-        //     "because encoding left, right and minima-positions together in 64 bits"
-        // );
-
-        // // Tree elements:
-        // //   left: u20,
-        // //   right: u20
-        // let mut tree: Vec<u64> = vec![0u64; s];
-
-        // // Store minima here to free space in tree.
-        // let minima: Vec<u64> = vec![0u64; s];
-
-        // // Positions into tree and block stored on stack.
-        // let mut stack: Vec<u32> = Vec::new();
-
-        // for (i, number) in block.iter().enumerate() {
-        //     let mut last_popped: Option<u32>;
-
-        //     let new_node_value: u32 = i as u32;
-        //     let mut new_node_left: u32 = 0;
-        //     let mut new_node_right: u32 = 0;
-
-        //     // Pop all elements from stack that are greater than number.
-        //     while stack.len() > 0 && block[*stack.last().unwrap() as usize] > *number {
-        //         last_popped = stack.pop();
-        //     }
-
-        //     if let last = stack.last() {
-        //         // last.right = new_node;
-        //         Self::set_right_child(tree[*last.unwrap() as usize], new_node_value);
-        //     }
-
-        //     if let last_popped = last_popped {
-        //         // new_node.left = last_popped
-        //         new_node_left = last_popped.unwrap();
-        //     }
-
-        //     // Push new node onto stack.
-        //     stack.push(new_node_value);
-
-        //     tree[i] = Self::pack_values(new_node_value, new_node_left, new_node_right);
-        // }
-
         let mut cartesian_tree_rmq: Vec<Vec<usize>> = vec![vec![0usize; s]; s];
 
-        // TODO:
         // Precompute all possible [From][To] combinations.
         //
-        // a) for i in 0..block.len(); for j in i..block.len()
-        //    But.. then what did I compute the cartesian tree for?
-        //    Can do that without anyway.
-        // b) Use cartesian tree more than just a lookup of min value
-        //    -> walk cartesian tree?
-        //    - I know min from left to right.
-
+        // a) [x] for i in 0..block.len(); for j in i..block.len()
+        //        But.. then what did I compute the cartesian tree for?
+        //        Can do that without anyway.
+        // b)     Use cartesian tree more than just a lookup of min value
+        //        -> walk cartesian tree?
+        //        - I know min from left to right.
         for i in 0..block.len() {
             // Minimum to itself.
             cartesian_tree_rmq[i][i] = i;
@@ -511,30 +452,6 @@ impl CartesianTrees {
     //     (value1, value2, value3)
     // }
 }
-
-/// Labeled binary tree.
-// #[derive(MallocSizeOf, Clone)]
-// struct CartesianTree {
-//     // root: position of minimum in array.
-//     root: Vec<u64>,
-
-//     // Contains root as well as all children.
-//     array: Vec<u64>,
-
-//     // left and right are rest of array.
-//     left_child: Vec<CartesianTree>,
-//     right_child: Vec<CartesianTree>,
-// }
-
-// impl CartesianTree {
-//     // fn new() -> Self {
-//     //     Self {
-//     //         left_child: Vec::new(),
-//     //         right_child: Vec::new(),
-//     //         value: Vec::new(),
-//     //     }
-//     // }
-// }
 
 mod tests {
 

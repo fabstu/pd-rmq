@@ -38,6 +38,7 @@ impl PD {
     }
 
     pub fn new(numbers: &mut Vec<u64>) -> Self {
+        // Sort numbers to iterate.
         numbers.sort();
 
         // Biggest number in universe.
@@ -78,10 +79,10 @@ impl PD {
         // Why are upper and lower bits based on # of numbers instead of
         // universe? Nevermind.
 
-        let mut upper_vec: Vec<bool> = vec![false; 2 * n * 10 + 1];
+        let mut upper_vec: Vec<bool> = vec![false; 2 * n + 1];
         let mut lower_vec: Vec<bool> = Vec::with_capacity(numbers.len() * lower_bits as usize);
 
-        // Increase upper_bits when not enough space.
+        // Increase upper_bits when not enough space in self.upper.
         //
         // Alternative: Use sparse bitvector.
         while ((2 * n + 1) as u64) < (u / 2u64.pow(upper_bits as u32)) {
@@ -101,11 +102,10 @@ impl PD {
         }
 
         // How do I handle upper_bits = 0?
-        // a) Use 1 by default.
-        // b) Sepcial-case insertion into upper (skipping it).
+        // a)     Use 1 by default.
+        // b)     Special-case insertion into upper (skipping it).
+        // c) [x] Increase upper.
         let pi_divisor = 1u64 << upper_bits;
-
-        // Sort numbers.
 
         for i in 0..numbers.len() {
             let number = numbers[i];
